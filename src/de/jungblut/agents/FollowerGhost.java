@@ -31,6 +31,8 @@ public class FollowerGhost extends EnvironmentAgent {
 
   private static final Object TAKEN = new Object();
 
+  private boolean stalker = false;
+
   private BufferedImage[] sprites = new BufferedImage[1];
   private PlanningEngine<Point> plan = new PlanningEngine<>();
   private DenseGraph<Object> graph;
@@ -63,7 +65,12 @@ public class FollowerGhost extends EnvironmentAgent {
   @Override
   public void move() {
     PacmanPlayer humanPlayer = getEnvironment().getHumanPlayer();
-    // initially we have to compute the path to the human
+    // if we are no stalker, we always compute the shortest path thus catching
+    // the human faster
+    if (!stalker) {
+      plan.clear();
+    }
+    // in case we are, we are just following the way the human took
     if (plan.isEmpty()) {
       computePath(humanPlayer);
     }
