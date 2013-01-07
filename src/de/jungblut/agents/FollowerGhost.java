@@ -94,7 +94,7 @@ public class FollowerGhost extends EnvironmentAgent {
     Point dest = new Point(humanPlayer.x, humanPlayer.y);
 
     AStar<Point, Object> search = new AStar<>();
-    WeightedEdgeContainer<Point, Integer> res = search.startAStarSearch(graph,
+    WeightedEdgeContainer<Point> res = search.startAStarSearch(graph,
         new Point(x, y), dest, new DistanceMeasurer<Point, Object, Integer>() {
           // simple manhattan distance
           @Override
