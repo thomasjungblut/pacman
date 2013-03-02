@@ -45,4 +45,9 @@ public interface Agent {
    */
   public void move();
 
+  /**
+   * @return true if the implemented agent is a human.
+   */
+  public boolean isHuman();
+
 }

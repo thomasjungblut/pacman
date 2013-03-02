@@ -55,8 +55,7 @@ public class FollowerGhost extends EnvironmentAgent {
         BlockState state = getEnvironment().getState(h, w);
         if (state != BlockState.WALL) {
           // adjacency should be resolved by the internal graph
-          graph
-              .addVertex(new VertexImpl<Point, Object>(new Point(h, w), TAKEN));
+          graph.addVertex(new VertexImpl<>(new Point(h, w), TAKEN));
         }
       }
     }
@@ -92,11 +91,15 @@ public class FollowerGhost extends EnvironmentAgent {
    */
   private void computePath(PacmanPlayer humanPlayer) {
     Point dest = new Point(humanPlayer.x, humanPlayer.y);
+    Point current = new Point(x, y);
 
     AStar<Point, Object> search = new AStar<>();
-    WeightedEdgeContainer<Point> res = search.startAStarSearch(graph,
-        new Point(x, y), dest, new DistanceMeasurer<Point, Object, Integer>() {
-          // simple manhattan distance
+    WeightedEdgeContainer<Point> res = search.startAStarSearch(graph, current,
+        dest, new DistanceMeasurer<Point, Object, Integer>() {
+          // simple manhattan distance.
+          // TODO this heuristic needs a measure of walls between pacman and the
+          // enemy as this is frequently causing ties in the heuristic making
+          // the ghost look stupid switching between two tiles.
           @Override
           public double measureDistance(Graph<Point, Object, Integer> g,
               Point start, Point goal) {
@@ -109,7 +112,12 @@ public class FollowerGhost extends EnvironmentAgent {
     List<Point> path = res.reconstructPath(dest);
     if (!path.isEmpty()) {
       Collections.reverse(path);
-      path.remove(0); // remove current position
+      // remove current position
+      if (path.get(0).equals(current)) {
+        path.remove(0);
+      }
+      // add the destination vertex as well
+      path.add(dest);
       for (Point p : path) {
         plan.plan(p);
       }

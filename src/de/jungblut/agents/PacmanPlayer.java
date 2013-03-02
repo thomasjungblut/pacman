@@ -87,4 +87,9 @@ public class PacmanPlayer extends EnvironmentAgent implements KeyListener {
     return 2;
   }
 
+  @Override
+  public boolean isHuman() {
+    return true;
+  }
+
 }

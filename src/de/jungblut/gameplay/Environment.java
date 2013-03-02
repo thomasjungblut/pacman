@@ -19,10 +19,15 @@ import de.jungblut.agents.RandomGhost;
  */
 public class Environment {
 
-  private static final double SPARSITY = 0.4;
+  private static final double WALL_SPARSITY = 0.4; // =60% walls
+  private static final double FOOD_SPARSITY = 0.8; // =20% food
 
   public enum BlockState {
-    WALL, FOOD, ROAD
+    WALL, FOOD, ROAD;
+    @Override
+    public String toString() {
+      return this.name().substring(0, 1);
+    };
   }
 
   public enum Direction {
@@ -40,13 +45,15 @@ public class Environment {
 
   }
 
-  private PacmanPlayer humanPlayer;
   private final List<Agent> agentList = new ArrayList<>();
 
   private final BlockState[][] environment;
   private final int blockSize;
   private final int height;
   private final int width;
+
+  private PacmanPlayer humanPlayer;
+  private int foodRemaining;
 
   /**
    * @param width the window width.
@@ -58,9 +65,25 @@ public class Environment {
     this.width = width / blockSize;
     this.height = height / blockSize;
     this.blockSize = blockSize;
-    this.environment = new BlockState[height][width];
+    this.environment = new BlockState[this.height][this.width];
     generateMaze();
     initAgents();
+    spawnFood();
+  }
+
+  private void spawnFood() {
+    // basically spawn food everywhere nothing else is while taking the food
+    // sparsity into account
+    Random rnd = new Random();
+    for (int h = 0; h < height; h++) {
+      for (int w = 0; w < width; w++) {
+        if (environment[h][w] == BlockState.ROAD && !isPlayerOnTile(h, w)
+            && rnd.nextDouble() > FOOD_SPARSITY) {
+          foodRemaining++;
+          environment[h][w] = BlockState.FOOD;
+        }
+      }
+    }
   }
 
   /**
@@ -81,7 +104,7 @@ public class Environment {
     for (int h = 0; h < height; h++) {
       for (int w = 0; w < width; w++) {
         if (h == 0 || w == 0 || w == width - 1 || h == height - 1
-            || rnd.nextDouble() > SPARSITY) {
+            || rnd.nextDouble() > WALL_SPARSITY) {
           environment[h][w] = BlockState.WALL;
         } else {
           environment[h][w] = BlockState.ROAD;
@@ -220,6 +243,42 @@ public class Environment {
   }
 
   /**
+   * @return true if the requested tile is not blocked
+   */
+  public boolean isBlocked(int x, int y, Direction d) {
+    return getState(y, x, d) != BlockState.ROAD;
+  }
+
+  /**
+   * @return true if there is a player on the tile.
+   */
+  public boolean isPlayerOnTile(int height, int width) {
+    for (Agent agent : agentList) {
+      if (agent.getXPosition() == height && agent.getYPosition() == width)
+        return true;
+    }
+    return false;
+  }
+
+  /**
+   * Removes the food tile on the given point and replaces it with normal road.
+   * 
+   * @return true if food was removed, false if not.
+   */
+  public boolean removeFood(int height, int width) {
+    if (environment[height][width] == BlockState.FOOD) {
+      environment[height][width] = BlockState.ROAD;
+      foodRemaining--;
+      return true;
+    }
+    return false;
+  }
+
+  public int getFoodRemaining() {
+    return this.foodRemaining;
+  }
+
+  /**
    * @return the blocksize.
    */
   public int getBlockSize() {
@@ -253,4 +312,5 @@ public class Environment {
   public PacmanPlayer getHumanPlayer() {
     return this.humanPlayer;
   }
+
 }

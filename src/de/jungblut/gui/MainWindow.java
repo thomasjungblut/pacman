@@ -1,12 +1,8 @@
 package de.jungblut.gui;
 
 import java.awt.Color;
-import java.awt.event.KeyListener;
 
 import javax.swing.JFrame;
-
-import de.jungblut.agents.Agent;
-import de.jungblut.gameplay.Environment;
 
 public class MainWindow extends JFrame {
 
@@ -16,34 +12,26 @@ public class MainWindow extends JFrame {
 
   private static final int X_OFFSET = 1220;
   private static final int Y_OFFSET = 200;
-  private static final int FRAME_WIDTH = 500;
-  private static final int FRAME_HEIGHT = 300;
-  private static final int BLOCK_SIZE = 20;
+  static final int FRAME_WIDTH = 500;
+  static final int FRAME_HEIGHT = 300;
+  static final int BLOCK_SIZE = 20;
 
   private boolean running = true;
   private int fps;
 
-  private Environment environment;
+  private DisplayComponent displayComponent;
 
   public MainWindow() {
     super("Pacman");
-    init();
-    add(new DisplayComponent(this, environment));
+    this.displayComponent = new DisplayComponent(this);
+    add(displayComponent);
+    displayComponent.setFocusable(true);
+    displayComponent.requestFocusInWindow();
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setResizable(false);
-    setFocusable(true);
     setBounds(X_OFFSET, Y_OFFSET, FRAME_WIDTH, FRAME_HEIGHT + BLOCK_SIZE);
     getContentPane().setBackground(Color.BLACK);
     setVisible(true);
-  }
-
-  private void init() {
-    environment = new Environment(FRAME_WIDTH, FRAME_HEIGHT, BLOCK_SIZE);
-    for (Agent a : environment.getAgents()) {
-      if (a instanceof KeyListener) {
-        this.addKeyListener((KeyListener) a);
-      }
-    }
   }
 
   public void run() {
@@ -65,7 +53,7 @@ public class MainWindow extends JFrame {
         fps = 0;
       }
 
-      doGameUpdates(delta);
+      displayComponent.doGameUpdates(delta);
       render();
 
       try {
@@ -78,20 +66,20 @@ public class MainWindow extends JFrame {
       }
     }
 
-  }
-
-  private void doGameUpdates(double delta) {
-    for (Agent agent : environment.getAgents()) {
-      agent.move();
-    }
+    // if we quit our running task, we can exit the JVM
+    System.exit(0);
   }
 
   private void render() {
-    repaint();
+    displayComponent.repaint();
   }
 
   public int getFps() {
     return this.fps;
+  }
+
+  void setRunning(boolean running) {
+    this.running = running;
   }
 
   public static void main(String[] args) {

@@ -33,7 +33,12 @@ public class RandomGhost extends EnvironmentAgent {
 
   @Override
   public void move() {
-    direction = Direction.values()[rand.nextInt(4)];
+    // don't move to blocked directions, also if our way isn't blocked- run
+    // along until blocked
+    while (getEnvironment()
+        .isBlocked(getYPosition(), getXPosition(), direction)) {
+      direction = Direction.values()[rand.nextInt(4)];
+    }
     super.move();
   }
 

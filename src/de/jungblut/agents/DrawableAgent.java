@@ -108,4 +108,9 @@ public abstract class DrawableAgent implements Agent {
     return dimg;
   }
 
+  @Override
+  public boolean isHuman() {
+    return false;
+  }
+
 }
