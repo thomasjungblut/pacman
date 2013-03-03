@@ -38,7 +38,7 @@ public class DisplayComponent extends JComponent implements KeyListener {
 
   private Environment environment;
   // note that this is a triple state for null=running, true=won, false=lost
-  private Boolean won;
+  private volatile Boolean won;
 
   private List<FoodConsumerListener> foodNotifier;
   private List<GameStateListener> gameStateNotifier;

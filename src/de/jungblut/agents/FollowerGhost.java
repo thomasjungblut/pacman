@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import javax.imageio.ImageIO;
 
@@ -29,13 +30,15 @@ import de.jungblut.graph.search.WeightedEdgeContainer;
  */
 public class FollowerGhost extends EnvironmentAgent {
 
-  private static final Object TAKEN = new Object();
+  static final Object TAKEN = new Object();
 
   private boolean stalker = false;
 
   private BufferedImage[] sprites = new BufferedImage[1];
   private PlanningEngine<Point> plan = new PlanningEngine<>();
   private DenseGraph<Object> graph;
+
+  private Random random = new Random();
 
   public FollowerGhost(Environment env) {
     super(env);
@@ -46,69 +49,75 @@ public class FollowerGhost extends EnvironmentAgent {
       e.printStackTrace();
     }
 
-    graph = new DenseGraph<>(getEnvironment().getHeight(), getEnvironment()
-        .getWidth());
+    graph = createGraph(env);
+  }
+
+  static DenseGraph<Object> createGraph(Environment env) {
+    DenseGraph<Object> graph = new DenseGraph<>(env.getHeight(), env.getWidth());
 
     // add the vertices from the environment
-    for (int h = 0; h < getEnvironment().getHeight(); h++) {
-      for (int w = 0; w < getEnvironment().getWidth(); w++) {
-        BlockState state = getEnvironment().getState(h, w);
+    for (int h = 0; h < env.getHeight(); h++) {
+      for (int w = 0; w < env.getWidth(); w++) {
+        BlockState state = env.getState(h, w);
         if (state != BlockState.WALL) {
           // adjacency should be resolved by the internal graph
           graph.addVertex(new VertexImpl<>(new Point(h, w), TAKEN));
         }
       }
     }
+    return graph;
   }
 
   @Override
   public void move() {
-    Agent humanPlayer = getEnvironment().getHumanPlayer();
-    // if we are no stalker, we always compute the shortest path thus catching
-    // the human faster
-    if (!stalker) {
-      plan.clear();
-    }
-    // in case we are, we are just following the way the human took
-    if (plan.isEmpty()) {
-      computePath(humanPlayer);
-    }
+    // only chase 50% of the time
+    if (random.nextDouble() > 0.5) {
+      Agent humanPlayer = getEnvironment().getHumanPlayer();
+      // if we are no stalker, we always compute the shortest path thus catching
+      // the human faster
+      if (!stalker) {
+        plan.clear();
+      }
+      // in case we are, we are just following the way the human took
+      if (plan.isEmpty()) {
+        computePath(graph, plan, new Point(humanPlayer.getXPosition(),
+            humanPlayer.getYPosition()), getXPosition(), getYPosition());
+      }
 
-    // now run along the path
-    Point nextAction = plan.nextAction();
-    Point currentPoint = new Point(x, y);
-    if (nextAction != null && !nextAction.equals(currentPoint)) {
-      this.direction = getEnvironment().getDirection(x, y, nextAction.x,
-          nextAction.y);
-      plan.planDistinct(new Point(humanPlayer.getXPosition(), humanPlayer
-          .getYPosition()));
-    }
+      // now run along the path
+      Point nextAction = plan.nextAction();
+      Point currentPoint = new Point(x, y);
+      if (nextAction != null && !nextAction.equals(currentPoint)) {
+        this.direction = getEnvironment().getDirection(x, y, nextAction.x,
+            nextAction.y);
+        plan.planDistinct(new Point(humanPlayer.getXPosition(), humanPlayer
+            .getYPosition()));
+      }
 
-    super.move();
+      super.move();
+    }
   }
 
   /**
    * Do some A* with my graph lib and the manhattan distance heuristic.
    */
-  private void computePath(Agent humanPlayer) {
-    Point dest = new Point(humanPlayer.getXPosition(),
-        humanPlayer.getYPosition());
+  static void computePath(DenseGraph<Object> graph, PlanningEngine<Point> plan,
+      Point dest, int x, int y) {
     Point current = new Point(x, y);
 
     AStar<Point, Object> search = new AStar<>();
     WeightedEdgeContainer<Point> res = search.startAStarSearch(graph, current,
         dest, new DistanceMeasurer<Point, Object, Integer>() {
-          // simple manhattan distance.
+          // simple euclidian distance.
           // TODO this heuristic needs a measure of walls between pacman and the
           // enemy as this is frequently causing ties in the heuristic making
           // the ghost look stupid switching between two tiles.
           @Override
           public double measureDistance(Graph<Point, Object, Integer> g,
               Point start, Point goal) {
-            double sum = 0d;
-            sum += Math.abs(start.x - goal.x);
-            sum += Math.abs(start.y - goal.y);
-            return sum;
+            int diff = start.x - goal.x;
+            int diff2 = start.y - goal.y;
+            return Math.sqrt(diff * diff + diff2 * diff2);
           }
         });
     List<Point> path = res.reconstructPath(dest);

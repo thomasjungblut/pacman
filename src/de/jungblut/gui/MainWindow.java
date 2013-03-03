@@ -6,7 +6,7 @@ import javax.swing.JFrame;
 
 public class MainWindow extends JFrame {
 
-  public static int TARGET_FPS = 5;
+  public static int TARGET_FPS = 6;
 
   private static final long serialVersionUID = 1L;
 
@@ -16,7 +16,7 @@ public class MainWindow extends JFrame {
   static final int FRAME_HEIGHT = 300;
   static final int BLOCK_SIZE = 20;
 
-  private boolean running = true;
+  private volatile boolean running = true;
   private int fps;
 
   private DisplayComponent displayComponent;

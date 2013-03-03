@@ -9,7 +9,6 @@ import java.util.Random;
 import de.jungblut.agents.Agent;
 import de.jungblut.agents.FollowerGhost;
 import de.jungblut.agents.QLearningAgent;
-import de.jungblut.agents.RandomGhost;
 
 /**
  * The game environment. Takes care of the world by: generating it, give helper
@@ -21,7 +20,7 @@ import de.jungblut.agents.RandomGhost;
 public class Environment {
 
   private static final double WALL_SPARSITY = 0.4; // =60% walls
-  private static final double FOOD_SPARSITY = 0.8; // =20% food
+  private static final double FOOD_SPARSITY = 0.4; // =60% food
 
   public enum BlockState {
     WALL, FOOD, ROAD;
@@ -55,6 +54,7 @@ public class Environment {
 
   private Agent humanPlayer;
   private int foodRemaining;
+  private final Random rnd = new Random();
 
   /**
    * @param width the window width.
@@ -75,7 +75,6 @@ public class Environment {
   private void spawnFood() {
     // basically spawn food everywhere nothing else is while taking the food
     // sparsity into account
-    Random rnd = new Random();
     for (int h = 0; h < height; h++) {
       for (int w = 0; w < width; w++) {
         if (environment[h][w] == BlockState.ROAD && !isPlayerOnTile(h, w)
@@ -94,7 +93,9 @@ public class Environment {
     // humanPlayer = new PacmanPlayer(this);
     humanPlayer = new QLearningAgent(this);
     agentList.add(humanPlayer);
-    agentList.add(new RandomGhost(this));
+    // agentList.add(new ConstantGhost(this));
+    // agentList.add(new RandomGhost(this));
+    agentList.add(new FollowerGhost(this));
     agentList.add(new FollowerGhost(this));
   }
 
@@ -102,7 +103,6 @@ public class Environment {
    * Pseudo-pacman maze generator. Pretty crazy logic.
    */
   public void generateMaze() {
-    Random rnd = new Random();
     for (int h = 0; h < height; h++) {
       for (int w = 0; w < width; w++) {
         if (h == 0 || w == 0 || w == width - 1 || h == height - 1
@@ -232,7 +232,6 @@ public class Environment {
    * @return a random free spot in the environment, e.G. to place an agent.
    */
   public Point getFreeSpot() {
-    Random rnd = new Random();
     for (int i = 0; i < 1000; i++) {
       int h = rnd.nextInt(getHeight());
       int w = rnd.nextInt(getWidth());
@@ -245,10 +244,10 @@ public class Environment {
   }
 
   /**
-   * @return true if the requested tile is not blocked
+   * @return true if the requested tile is not blocked = a wall.
    */
   public boolean isBlocked(int x, int y, Direction d) {
-    return getState(y, x, d) != BlockState.ROAD;
+    return getState(y, x, d) == BlockState.WALL;
   }
 
   /**

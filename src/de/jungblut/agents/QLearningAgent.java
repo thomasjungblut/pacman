@@ -18,6 +18,8 @@ import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.Environment.Direction;
 import de.jungblut.gameplay.FoodConsumerListener;
 import de.jungblut.gameplay.GameStateListener;
+import de.jungblut.gameplay.PlanningEngine;
+import de.jungblut.graph.DenseGraph;
 import de.jungblut.math.DoubleVector;
 import de.jungblut.math.activation.ActivationFunction;
 import de.jungblut.math.activation.ActivationFunctionSelector;
@@ -33,33 +35,41 @@ import de.jungblut.math.dense.DenseDoubleVector;
 public class QLearningAgent extends EnvironmentAgent implements
     GameStateListener, FoodConsumerListener {
 
-  private static final double LEARNING_RATE = 0.2;
-  private static final double DISCOUNT_FACTOR = 0.8;
-  private static final double EXPLORATION_PROBABILITY = 0.5;
+  private static final double LEARNING_RATE = 0.1;
+  private static final double DISCOUNT_FACTOR = 0.01;
+  private static final double EXPLORATION_PROBABILITY = 0;
 
-  private static final int FOOD_REWARD = 250;
-  private static final int WON_REWARD = 500;
-  private static final int LOST_REWARD = -50;
+  private static final double FOOD_REWARD = 1;
+  private static final double WON_REWARD = 10;
+  private static final double LOST_REWARD = -10;
+  private static final double WALL_MISS_REWARD = 0;
+  private static final double WALL_RUNNER_REWARD = -10;
+
+  // note that this is constant throughout all our runs
+  private static final QLearningMinimizer Q_LEARNING_MINIMIZER = new QLearningMinimizer();
+
+  private static int epoch = 0;
 
   /**
    * Features: <br/>
    * - distance to closest ghost<br/>
    * - distance to closest food<br/>
-   * - free directions <br/>
+   * - direction for the closest food <br/>
+   * - directions blocked <br/>
    * Ideas: <br/>
    * - number of ghosts in a radius of n-blocks<br/>
-   * - TODO direction for the closest food/ghost<br/>
+   * - direction for the closest ghost<br/>
    */
 
-  private final int[] layers = { 6, 4 };
+  private final int[] layers = { 10, 4 };
   private final ActivationFunction[] activations = {
       ActivationFunctionSelector.LINEAR.get(),
-      ActivationFunctionSelector.SIGMOID.get() };
-
+      ActivationFunctionSelector.LINEAR.get() };
   // pacman animation
   private final BufferedImage[] sprites = new BufferedImage[2];
+
+  private DenseGraph<Object> graph;
   private MultilayerPerceptron network;
-  private QLearningMinimizer minimizer = new QLearningMinimizer();
 
   private DenseDoubleVector lastPrediction;
   private DoubleVector lastFeatures;
@@ -75,30 +85,44 @@ public class QLearningAgent extends EnvironmentAgent implements
       e.printStackTrace();
     }
     // initialize to zeros
-    minimizer.setFeatures(new DenseDoubleVector(layers[0]));
-    minimizer.setOutcome(new DenseDoubleVector(layers[layers.length - 1]));
+    Q_LEARNING_MINIMIZER.setFeatures(new DenseDoubleVector(layers[0]));
+    Q_LEARNING_MINIMIZER.setOutcome(new DenseDoubleVector(
+        layers[layers.length - 1]));
     network = MultilayerPerceptronConfiguration.newConfiguration(layers,
-        activations, minimizer, 1).build();
+        activations, Q_LEARNING_MINIMIZER, 1).build();
     // do a first trainingstep to init everything inside
-    network.trainStochastic();
-    System.out.println("Starting new epoch: "
-        + Arrays.toString(minimizer.getTheta().toArray()));
+    if (Q_LEARNING_MINIMIZER.getTheta() == null) {
+      network.trainStochastic();
+    } else {
+      network.trainStochastic(Q_LEARNING_MINIMIZER.getTheta());
+    }
+    System.out.println("Starting epoch (" + (epoch++) + "): "
+        + Arrays.toString(Q_LEARNING_MINIMIZER.getTheta().toArray()));
+    graph = FollowerGhost.createGraph(env);
   }
 
   @Override
   public void move() {
-    if (rand.nextDouble() > (1d - EXPLORATION_PROBABILITY)) {
-      direction = RandomGhost.getRandomDirection(getEnvironment(),
-          getYPosition(), getXPosition(), rand);
-    } else {
+    boolean explore = rand.nextDouble() > (1d - EXPLORATION_PROBABILITY);
+    if (!explore) {
       lastFeatures = buildFeatureVector();
       lastPrediction = network.predict(lastFeatures);
-      int maxIndex = lastPrediction.maxIndex();
-      direction = Direction.values()[maxIndex];
+      int index = lastPrediction.maxIndex();
+      direction = Direction.values()[index];
       System.out.println(lastFeatures + " -> " + lastPrediction + " = "
           + direction);
     }
-    super.move();
+    boolean isBlocked = isBlocked(direction);
+    if (explore) {
+      direction = RandomGhost.getRandomDirection(getEnvironment(),
+          getXPosition(), getYPosition(), rand);
+    }
+    if (isBlocked) {
+      reward(WALL_RUNNER_REWARD);
+    } else {
+      reward(WALL_MISS_REWARD);
+      super.move();
+    }
   }
 
   /*
@@ -107,33 +131,29 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   @Override
   public void consumedFood(int x, int y, int foodRemaining) {
-    if (lastPrediction == null) {
-      lastPrediction = new DenseDoubleVector(4);
-    }
-    minimizer.update(lastPrediction, FOOD_REWARD, LEARNING_RATE,
-        DISCOUNT_FACTOR);
-    System.out.println("Updated theta: "
-        + Arrays.toString(minimizer.getTheta().toArray()));
-    updateThetaInNetwork();
+    reward(FOOD_REWARD);
   }
 
   @Override
   public boolean gameStateChanged(boolean won) {
-    System.out.println(won ? "We WON OMG!" : "fail.");
-    if (lastPrediction == null) {
-      lastPrediction = new DenseDoubleVector(4);
-    }
-    minimizer.update(lastPrediction, won ? WON_REWARD : LOST_REWARD,
-        LEARNING_RATE, DISCOUNT_FACTOR);
-    System.out.println("Updated theta: "
-        + Arrays.toString(minimizer.getTheta().toArray()));
-    updateThetaInNetwork();
+    System.out.println((won ? "We WON OMG!" : "fail.")
+        + "\n\n---------------------------");
+    reward(won ? WON_REWARD : LOST_REWARD);
     // TODO check if we need have exceeded our #epochs
     return true;
   }
 
+  private void reward(double reward) {
+    if (lastPrediction == null) {
+      lastPrediction = new DenseDoubleVector(4);
+    }
+    Q_LEARNING_MINIMIZER.update(lastPrediction, reward, LEARNING_RATE,
+        DISCOUNT_FACTOR);
+    updateThetaInNetwork();
+  }
+
   private void updateThetaInNetwork() {
-    network.trainStochastic(minimizer.getTheta());
+    network.trainStochastic(Q_LEARNING_MINIMIZER.getTheta());
   }
 
   private DoubleVector buildFeatureVector() {
@@ -150,18 +170,35 @@ public class QLearningAgent extends EnvironmentAgent implements
       foodDists[i] = distance(x, y, foodPoints.get(i).x, foodPoints.get(i).y);
     }
 
+    int minFoodDistanceIndex = ArrayUtils.minIndex(foodDists);
+    Point nearestFoodTile = foodPoints.get(minFoodDistanceIndex);
+    PlanningEngine<Point> plan = new PlanningEngine<>();
+    FollowerGhost.computePath(graph, plan, nearestFoodTile, getXPosition(),
+        getYPosition());
+    Point nextAction = plan.nextAction();
+    Direction nextFoodDirection = direction;
+    if (nextAction != null) {
+      nextFoodDirection = getEnvironment().getDirection(x, y, nextAction.x,
+          nextAction.y);
+    }
+
+    int leftFood = nextFoodDirection == Direction.LEFT ? 0 : 1;
+    int rightFood = nextFoodDirection == Direction.RIGHT ? 0 : 1;
+    int upFood = nextFoodDirection == Direction.UP ? 0 : 1;
+    int downFood = nextFoodDirection == Direction.DOWN ? 0 : 1;
+
     int leftBlocked = getEnvironment().isBlocked(getYPosition(),
-        getXPosition(), Direction.LEFT) ? 1 : 0;
+        getXPosition(), Direction.LEFT) ? 0 : 1;
     int rightBlocked = getEnvironment().isBlocked(getYPosition(),
-        getXPosition(), Direction.RIGHT) ? 1 : 0;
+        getXPosition(), Direction.RIGHT) ? 0 : 1;
     int upBlocked = getEnvironment().isBlocked(getYPosition(), getXPosition(),
-        Direction.UP) ? 1 : 0;
+        Direction.UP) ? 0 : 1;
     int downBlocked = getEnvironment().isBlocked(getYPosition(),
-        getXPosition(), Direction.DOWN) ? 1 : 0;
+        getXPosition(), Direction.DOWN) ? 0 : 1;
 
     return new DenseDoubleVector(new double[] { ArrayUtils.min(agentDists),
-        ArrayUtils.min(foodDists), leftBlocked, rightBlocked, upBlocked,
-        downBlocked });
+        foodDists[minFoodDistanceIndex], leftFood, rightFood, upFood, downFood,
+        leftBlocked, rightBlocked, upBlocked, downBlocked });
   }
 
   public double distance(int x, int y, int x2, int y2) {
