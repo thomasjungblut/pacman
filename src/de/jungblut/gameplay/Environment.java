@@ -2,12 +2,13 @@ package de.jungblut.gameplay;
 
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
 import de.jungblut.agents.Agent;
 import de.jungblut.agents.FollowerGhost;
-import de.jungblut.agents.PacmanPlayer;
+import de.jungblut.agents.QLearningAgent;
 import de.jungblut.agents.RandomGhost;
 
 /**
@@ -52,7 +53,7 @@ public class Environment {
   private final int height;
   private final int width;
 
-  private PacmanPlayer humanPlayer;
+  private Agent humanPlayer;
   private int foodRemaining;
 
   /**
@@ -90,7 +91,8 @@ public class Environment {
    * Adds the agents to the world.
    */
   private void initAgents() {
-    humanPlayer = new PacmanPlayer(this);
+    // humanPlayer = new PacmanPlayer(this);
+    humanPlayer = new QLearningAgent(this);
     agentList.add(humanPlayer);
     agentList.add(new RandomGhost(this));
     agentList.add(new FollowerGhost(this));
@@ -274,6 +276,25 @@ public class Environment {
     return false;
   }
 
+  /**
+   * @return the points in the environment, where food is available.
+   */
+  public List<Point> getFoodPoints() {
+    List<Point> lst = new ArrayList<>();
+
+    for (int h = 0; h < height; h++) {
+      for (int w = 0; w < width; w++) {
+        if (environment[h][w] == BlockState.FOOD) {
+          lst.add(new Point(h, w));
+        }
+      }
+    }
+    return lst;
+  }
+
+  /**
+   * @return number of food tiles remaining.
+   */
   public int getFoodRemaining() {
     return this.foodRemaining;
   }
@@ -307,9 +328,24 @@ public class Environment {
   }
 
   /**
+   * @return the agents that are not human.
+   */
+  public List<Agent> getBotAgents() {
+    List<Agent> al = new ArrayList<>(this.agentList);
+    Iterator<Agent> iterator = al.iterator();
+    while (iterator.hasNext()) {
+      Agent next = iterator.next();
+      if (next.isHuman()) {
+        iterator.remove();
+      }
+    }
+    return al;
+  }
+
+  /**
    * @return the human player.
    */
-  public PacmanPlayer getHumanPlayer() {
+  public Agent getHumanPlayer() {
     return this.humanPlayer;
   }
 

@@ -63,7 +63,7 @@ public class FollowerGhost extends EnvironmentAgent {
 
   @Override
   public void move() {
-    PacmanPlayer humanPlayer = getEnvironment().getHumanPlayer();
+    Agent humanPlayer = getEnvironment().getHumanPlayer();
     // if we are no stalker, we always compute the shortest path thus catching
     // the human faster
     if (!stalker) {
@@ -80,7 +80,8 @@ public class FollowerGhost extends EnvironmentAgent {
     if (nextAction != null && !nextAction.equals(currentPoint)) {
       this.direction = getEnvironment().getDirection(x, y, nextAction.x,
           nextAction.y);
-      plan.planDistinct(new Point(humanPlayer.x, humanPlayer.y));
+      plan.planDistinct(new Point(humanPlayer.getXPosition(), humanPlayer
+          .getYPosition()));
     }
 
     super.move();
@@ -89,8 +90,9 @@ public class FollowerGhost extends EnvironmentAgent {
   /**
    * Do some A* with my graph lib and the manhattan distance heuristic.
    */
-  private void computePath(PacmanPlayer humanPlayer) {
-    Point dest = new Point(humanPlayer.x, humanPlayer.y);
+  private void computePath(Agent humanPlayer) {
+    Point dest = new Point(humanPlayer.getXPosition(),
+        humanPlayer.getYPosition());
     Point current = new Point(x, y);
 
     AStar<Point, Object> search = new AStar<>();

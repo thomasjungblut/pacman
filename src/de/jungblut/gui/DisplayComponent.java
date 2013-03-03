@@ -11,6 +11,7 @@ import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.imageio.ImageIO;
@@ -18,6 +19,8 @@ import javax.swing.JComponent;
 
 import de.jungblut.agents.Agent;
 import de.jungblut.gameplay.Environment;
+import de.jungblut.gameplay.FoodConsumerListener;
+import de.jungblut.gameplay.GameStateListener;
 
 public class DisplayComponent extends JComponent implements KeyListener {
 
@@ -37,6 +40,9 @@ public class DisplayComponent extends JComponent implements KeyListener {
   // note that this is a triple state for null=running, true=won, false=lost
   private Boolean won;
 
+  private List<FoodConsumerListener> foodNotifier;
+  private List<GameStateListener> gameStateNotifier;
+
   public DisplayComponent(MainWindow mainWindow) {
     this.mainWindow = mainWindow;
     init();
@@ -52,9 +58,18 @@ public class DisplayComponent extends JComponent implements KeyListener {
     won = null;
     environment = new Environment(MainWindow.FRAME_WIDTH,
         MainWindow.FRAME_HEIGHT, MainWindow.BLOCK_SIZE);
+    foodNotifier = new ArrayList<>();
+    gameStateNotifier = new ArrayList<>();
+    // register the callbacks
     for (Agent a : environment.getAgents()) {
       if (a instanceof KeyListener) {
         this.addKeyListener((KeyListener) a);
+      }
+      if (a instanceof FoodConsumerListener) {
+        foodNotifier.add((FoodConsumerListener) a);
+      }
+      if (a instanceof GameStateListener) {
+        gameStateNotifier.add((GameStateListener) a);
       }
     }
   }
@@ -65,11 +80,18 @@ public class DisplayComponent extends JComponent implements KeyListener {
       for (int i = 0; i < agents.size(); i++) {
         Agent agent = agents.get(i);
         agent.move();
-        if (agent.isHuman()
-            && environment.removeFood(agent.getXPosition(),
-                agent.getYPosition()) && environment.getFoodRemaining() <= 0) {
-          won = true;
-          break;
+        if (agent.isHuman()) {
+          if (environment
+              .removeFood(agent.getXPosition(), agent.getYPosition())) {
+            for (FoodConsumerListener listener : foodNotifier) {
+              listener.consumedFood(agent.getXPosition(), agent.getYPosition(),
+                  environment.getFoodRemaining());
+            }
+            if (environment.getFoodRemaining() <= 0) {
+              won = true;
+              break;
+            }
+          }
         }
 
         // check for other agent collisions
@@ -84,6 +106,15 @@ public class DisplayComponent extends JComponent implements KeyListener {
               won = false;
               break;
             }
+          }
+        }
+      }
+      if (won != null) {
+        for (GameStateListener listener : gameStateNotifier) {
+          if (listener.gameStateChanged(won)) {
+            init();
+          } else {
+            mainWindow.setRunning(false);
           }
         }
       }
