@@ -80,8 +80,13 @@ public class FollowerGhost extends EnvironmentAgent {
       }
       // in case we are, we are just following the way the human took
       if (plan.isEmpty()) {
-        computePath(graph, plan, new Point(humanPlayer.getXPosition(),
-            humanPlayer.getYPosition()), getXPosition(), getYPosition());
+        Point point = new Point(humanPlayer.getXPosition(),
+            humanPlayer.getYPosition());
+        if (graph.getVertexIDSet().contains(point)) {
+          computePath(graph, plan, point, getXPosition(), getYPosition());
+        } else {
+          return;
+        }
       }
 
       // now run along the path

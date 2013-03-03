@@ -13,6 +13,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.imageio.ImageIO;
 import javax.swing.JComponent;
@@ -37,6 +39,8 @@ public class DisplayComponent extends JComponent implements KeyListener {
   private final BufferedImage foodSprite;
 
   private Environment environment;
+
+  private volatile Lock lock = new ReentrantLock();
   // note that this is a triple state for null=running, true=won, false=lost
   private volatile Boolean won;
 
@@ -88,7 +92,12 @@ public class DisplayComponent extends JComponent implements KeyListener {
                   environment.getFoodRemaining());
             }
             if (environment.getFoodRemaining() <= 0) {
-              won = true;
+              try {
+                lock.lock();
+                won = true;
+              } finally {
+                lock.unlock();
+              }
               break;
             }
           }
@@ -103,7 +112,12 @@ public class DisplayComponent extends JComponent implements KeyListener {
                 .getXPosition()
                 && agent.getYPosition() == environment.getHumanPlayer()
                     .getYPosition()) {
-              won = false;
+              try {
+                lock.lock();
+                won = false;
+              } finally {
+                lock.unlock();
+              }
               break;
             }
           }
@@ -173,24 +187,29 @@ public class DisplayComponent extends JComponent implements KeyListener {
     g.setColor(FONT_COLOR);
     g.drawString("FPS: " + fps, 10, 10);
     g.setColor(BACKGROUND_COLOR);
-    if (won != null) {
-      String s = "You " + (won ? "won" : "failed miserably")
-          + "! Continue? Y/N";
-      // calculate the font sizes and center appropriately
-      FontMetrics fm = g.getFontMetrics(END_SCREEN_FONT);
-      java.awt.geom.Rectangle2D rect = fm.getStringBounds(s, g);
-      int textHeight = (int) (rect.getHeight());
-      int textWidth = (int) (rect.getWidth());
-      int panelHeight = this.getHeight();
-      int panelWidth = this.getWidth();
-      int x = (panelWidth - textWidth) / 2;
-      int y = (panelHeight - textHeight) / 2 + fm.getAscent();
-      // fill the background, so our text doesn't vanish
-      g.fillRect(x, y - fm.getAscent(), textWidth, textHeight);
-      g.setColor(END_SCREEN_FONT_COLOR);
-      g.setFont(END_SCREEN_FONT);
-      g.drawString(s, x, y);
-      g.setColor(BACKGROUND_COLOR);
+    try {
+      lock.lock();
+      if (won != null) {
+        String s = "You " + (won ? "won" : "failed miserably")
+            + "! Continue? Y/N";
+        // calculate the font sizes and center appropriately
+        FontMetrics fm = g.getFontMetrics(END_SCREEN_FONT);
+        java.awt.geom.Rectangle2D rect = fm.getStringBounds(s, g);
+        int textHeight = (int) (rect.getHeight());
+        int textWidth = (int) (rect.getWidth());
+        int panelHeight = this.getHeight();
+        int panelWidth = this.getWidth();
+        int x = (panelWidth - textWidth) / 2;
+        int y = (panelHeight - textHeight) / 2 + fm.getAscent();
+        // fill the background, so our text doesn't vanish
+        g.fillRect(x, y - fm.getAscent(), textWidth, textHeight);
+        g.setColor(END_SCREEN_FONT_COLOR);
+        g.setFont(END_SCREEN_FONT);
+        g.drawString(s, x, y);
+        g.setColor(BACKGROUND_COLOR);
+      }
+    } finally {
+      lock.unlock();
     }
   }
 

@@ -22,6 +22,8 @@ public class Environment {
   private static final double WALL_SPARSITY = 0.4; // =60% walls
   private static final double FOOD_SPARSITY = 0.4; // =60% food
 
+  private static final long SEED = System.currentTimeMillis();
+
   public enum BlockState {
     WALL, FOOD, ROAD;
     @Override
@@ -54,7 +56,7 @@ public class Environment {
 
   private Agent humanPlayer;
   private int foodRemaining;
-  private final Random rnd = new Random();
+  private final Random rnd = new Random(SEED);
 
   /**
    * @param width the window width.

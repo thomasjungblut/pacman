@@ -12,7 +12,6 @@ import javax.imageio.ImageIO;
 
 import de.jungblut.datastructure.ArrayUtils;
 import de.jungblut.gameplay.Environment;
-import de.jungblut.gameplay.Environment.BlockState;
 import de.jungblut.gameplay.Environment.Direction;
 import de.jungblut.gameplay.FoodConsumerListener;
 import de.jungblut.gameplay.GameStateListener;
@@ -36,11 +35,11 @@ public class QLearningAgent extends EnvironmentAgent implements
   private static final int NUM_FEATURES = 10;
 
   private static final double LEARNING_RATE = 0.1;
-  private static final double DISCOUNT_FACTOR = 0.01;
-  private static final double EXPLORATION_PROBABILITY = 0.1;
+  private static final double DISCOUNT_FACTOR = 0.9;
+  private static final double EXPLORATION_PROBABILITY = 0.2;
 
-  private static final double FOOD_REWARD = 1;
-  private static final double WON_REWARD = 10;
+  private static final double FOOD_REWARD = 20;
+  private static final double WON_REWARD = 100;
   private static final double LOST_REWARD = -10;
 
   private static int epoch = 0;
@@ -83,8 +82,8 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   @Override
   public void move() {
-    // explore
-    if (rand.nextDouble() > (1d - EXPLORATION_PROBABILITY)) {
+    // explore for the first 20 epochs
+    if (epoch < 20 && rand.nextDouble() > (1d - EXPLORATION_PROBABILITY)) {
       direction = RandomGhost.getRandomDirection(getEnvironment(),
           getXPosition(), getYPosition(), rand);
     } else {
@@ -101,7 +100,7 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   public double getQValue(int x, int y, Direction direction) {
     Point point = getEnvironment().getPoint(x, y, direction);
-    if (getEnvironment().getState(point.x, point.y) != BlockState.WALL) {
+    if (graph.getVertexIDSet().contains(point)) {
       return weights.dot(buildFeatureVector(point.x, point.y));
     } else {
       return -Double.MAX_VALUE;
