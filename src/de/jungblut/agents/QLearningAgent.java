@@ -4,6 +4,7 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -11,6 +12,7 @@ import javax.imageio.ImageIO;
 
 import de.jungblut.datastructure.ArrayUtils;
 import de.jungblut.gameplay.Environment;
+import de.jungblut.gameplay.Environment.BlockState;
 import de.jungblut.gameplay.Environment.Direction;
 import de.jungblut.gameplay.FoodConsumerListener;
 import de.jungblut.gameplay.GameStateListener;
@@ -35,15 +37,15 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   private static final double LEARNING_RATE = 0.1;
   private static final double DISCOUNT_FACTOR = 0.01;
-  private static final double EXPLORATION_PROBABILITY = 0;
+  private static final double EXPLORATION_PROBABILITY = 0.1;
 
   private static final double FOOD_REWARD = 1;
   private static final double WON_REWARD = 10;
   private static final double LOST_REWARD = -10;
-  private static final double WALL_MISS_REWARD = 0;
-  private static final double WALL_RUNNER_REWARD = -10;
 
   private static int epoch = 0;
+
+  private static DoubleVector weights;
 
   /**
    * Features: <br/>
@@ -56,11 +58,10 @@ public class QLearningAgent extends EnvironmentAgent implements
    * - direction for the closest ghost<br/>
    */
 
-  // pacman animation
+  // animation
   private final BufferedImage[] sprites = new BufferedImage[2];
 
   private DenseGraph<Object> graph;
-  private DenseDoubleVector weights;
   private Random rand = new Random();
 
   public QLearningAgent(Environment env) {
@@ -73,22 +74,38 @@ public class QLearningAgent extends EnvironmentAgent implements
     }
     graph = FollowerGhost.createGraph(env);
     weights = new DenseDoubleVector(NUM_FEATURES);
+    for (int i = 0; i < weights.getLength(); i++) {
+      weights.set(i, rand.nextDouble());
+    }
+    System.out.println("Starting epoch " + (epoch++) + " -> "
+        + Arrays.toString(weights.toArray()));
   }
 
   @Override
   public void move() {
-    // check for every q value from this direction
-    double[] qValues = new double[4];
-    for (Direction d : Direction.values()) {
-      qValues[d.getIndex()] = getQValue(x, y, d);
+    // explore
+    if (rand.nextDouble() > (1d - EXPLORATION_PROBABILITY)) {
+      direction = RandomGhost.getRandomDirection(getEnvironment(),
+          getXPosition(), getYPosition(), rand);
+    } else {
+      // check for every q value from this direction
+      double[] qValues = new double[4];
+      for (Direction d : Direction.values()) {
+        qValues[d.getIndex()] = getQValue(x, y, d);
+      }
+      direction = Direction.values()[ArrayUtils.maxIndex(qValues)];
+      System.out.println(Arrays.toString(qValues) + " -> " + direction);
     }
-    direction = Direction.values()[ArrayUtils.maxIndex(qValues)];
     super.move();
   }
 
   public double getQValue(int x, int y, Direction direction) {
-    Point point = getEnvironment().getPoint(y, x, direction);
-    return buildFeatureVector(point.x, point.y).dot(weights);
+    Point point = getEnvironment().getPoint(x, y, direction);
+    if (getEnvironment().getState(point.x, point.y) != BlockState.WALL) {
+      return weights.dot(buildFeatureVector(point.x, point.y));
+    } else {
+      return -Double.MAX_VALUE;
+    }
   }
 
   /*
@@ -97,22 +114,26 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   @Override
   public void consumedFood(int x, int y, int foodRemaining) {
-    reward(FOOD_REWARD, x, y, direction, 0);
+    double[] qValues = new double[4];
+    for (Direction d : Direction.values()) {
+      qValues[d.getIndex()] = getQValue(x, y, d);
+    }
+    reward(FOOD_REWARD, ArrayUtils.max(qValues));
   }
 
   @Override
   public boolean gameStateChanged(boolean won) {
     System.out.println((won ? "We WON OMG!" : "fail.")
         + "\n\n---------------------------");
-    reward(won ? WON_REWARD : LOST_REWARD, x, y, direction, 0);
+    // next state is zero
+    reward(won ? WON_REWARD : LOST_REWARD, 0);
     // TODO check if we need have exceeded our #epochs
     return true;
   }
 
-  private void reward(double reward, int x, int y, Direction action,
-      double maxNextState) {
-    // TODO reward and update
-
+  private void reward(double reward, double maxNextState) {
+    weights = weights.add(LEARNING_RATE
+        * (reward + DISCOUNT_FACTOR * maxNextState));
   }
 
   private DoubleVector buildFeatureVector(int x, int y) {
@@ -132,8 +153,7 @@ public class QLearningAgent extends EnvironmentAgent implements
     int minFoodDistanceIndex = ArrayUtils.minIndex(foodDists);
     Point nearestFoodTile = foodPoints.get(minFoodDistanceIndex);
     PlanningEngine<Point> plan = new PlanningEngine<>();
-    FollowerGhost.computePath(graph, plan, nearestFoodTile, getXPosition(),
-        getYPosition());
+    FollowerGhost.computePath(graph, plan, nearestFoodTile, x, y);
     Point nextAction = plan.nextAction();
     Direction nextFoodDirection = direction;
     if (nextAction != null) {
