@@ -4,15 +4,11 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
 import javax.imageio.ImageIO;
 
-import de.jungblut.ai.QLearningMinimizer;
-import de.jungblut.classification.nn.MultilayerPerceptron;
-import de.jungblut.classification.nn.MultilayerPerceptron.MultilayerPerceptronConfiguration;
 import de.jungblut.datastructure.ArrayUtils;
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.Environment.Direction;
@@ -21,19 +17,21 @@ import de.jungblut.gameplay.GameStateListener;
 import de.jungblut.gameplay.PlanningEngine;
 import de.jungblut.graph.DenseGraph;
 import de.jungblut.math.DoubleVector;
-import de.jungblut.math.activation.ActivationFunction;
-import de.jungblut.math.activation.ActivationFunctionSelector;
 import de.jungblut.math.dense.DenseDoubleVector;
 
 /**
  * An agent that learns to play pacman through qlearning value iterations and a
- * neural network.
+ * neural network. <a
+ * href="http://mechanistician.blogspot.de/2009/05/pacman-and-reinforcement
+ * -learning.html">Some nice wrap up can be found here</a>
  * 
  * @author thomas.jungblut
  * 
  */
 public class QLearningAgent extends EnvironmentAgent implements
     GameStateListener, FoodConsumerListener {
+
+  private static final int NUM_FEATURES = 10;
 
   private static final double LEARNING_RATE = 0.1;
   private static final double DISCOUNT_FACTOR = 0.01;
@@ -44,9 +42,6 @@ public class QLearningAgent extends EnvironmentAgent implements
   private static final double LOST_REWARD = -10;
   private static final double WALL_MISS_REWARD = 0;
   private static final double WALL_RUNNER_REWARD = -10;
-
-  // note that this is constant throughout all our runs
-  private static final QLearningMinimizer Q_LEARNING_MINIMIZER = new QLearningMinimizer();
 
   private static int epoch = 0;
 
@@ -61,19 +56,11 @@ public class QLearningAgent extends EnvironmentAgent implements
    * - direction for the closest ghost<br/>
    */
 
-  private final int[] layers = { 10, 4 };
-  private final ActivationFunction[] activations = {
-      ActivationFunctionSelector.LINEAR.get(),
-      ActivationFunctionSelector.LINEAR.get() };
   // pacman animation
   private final BufferedImage[] sprites = new BufferedImage[2];
 
   private DenseGraph<Object> graph;
-  private MultilayerPerceptron network;
-
-  private DenseDoubleVector lastPrediction;
-  private DoubleVector lastFeatures;
-
+  private DenseDoubleVector weights;
   private Random rand = new Random();
 
   public QLearningAgent(Environment env) {
@@ -84,45 +71,24 @@ public class QLearningAgent extends EnvironmentAgent implements
     } catch (IOException e) {
       e.printStackTrace();
     }
-    // initialize to zeros
-    Q_LEARNING_MINIMIZER.setFeatures(new DenseDoubleVector(layers[0]));
-    Q_LEARNING_MINIMIZER.setOutcome(new DenseDoubleVector(
-        layers[layers.length - 1]));
-    network = MultilayerPerceptronConfiguration.newConfiguration(layers,
-        activations, Q_LEARNING_MINIMIZER, 1).build();
-    // do a first trainingstep to init everything inside
-    if (Q_LEARNING_MINIMIZER.getTheta() == null) {
-      network.trainStochastic();
-    } else {
-      network.trainStochastic(Q_LEARNING_MINIMIZER.getTheta());
-    }
-    System.out.println("Starting epoch (" + (epoch++) + "): "
-        + Arrays.toString(Q_LEARNING_MINIMIZER.getTheta().toArray()));
     graph = FollowerGhost.createGraph(env);
+    weights = new DenseDoubleVector(NUM_FEATURES);
   }
 
   @Override
   public void move() {
-    boolean explore = rand.nextDouble() > (1d - EXPLORATION_PROBABILITY);
-    if (!explore) {
-      lastFeatures = buildFeatureVector();
-      lastPrediction = network.predict(lastFeatures);
-      int index = lastPrediction.maxIndex();
-      direction = Direction.values()[index];
-      System.out.println(lastFeatures + " -> " + lastPrediction + " = "
-          + direction);
+    // check for every q value from this direction
+    double[] qValues = new double[4];
+    for (Direction d : Direction.values()) {
+      qValues[d.getIndex()] = getQValue(x, y, d);
     }
-    boolean isBlocked = isBlocked(direction);
-    if (explore) {
-      direction = RandomGhost.getRandomDirection(getEnvironment(),
-          getXPosition(), getYPosition(), rand);
-    }
-    if (isBlocked) {
-      reward(WALL_RUNNER_REWARD);
-    } else {
-      reward(WALL_MISS_REWARD);
-      super.move();
-    }
+    direction = Direction.values()[ArrayUtils.maxIndex(qValues)];
+    super.move();
+  }
+
+  public double getQValue(int x, int y, Direction direction) {
+    Point point = getEnvironment().getPoint(y, x, direction);
+    return buildFeatureVector(point.x, point.y).dot(weights);
   }
 
   /*
@@ -131,32 +97,25 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   @Override
   public void consumedFood(int x, int y, int foodRemaining) {
-    reward(FOOD_REWARD);
+    reward(FOOD_REWARD, x, y, direction, 0);
   }
 
   @Override
   public boolean gameStateChanged(boolean won) {
     System.out.println((won ? "We WON OMG!" : "fail.")
         + "\n\n---------------------------");
-    reward(won ? WON_REWARD : LOST_REWARD);
+    reward(won ? WON_REWARD : LOST_REWARD, x, y, direction, 0);
     // TODO check if we need have exceeded our #epochs
     return true;
   }
 
-  private void reward(double reward) {
-    if (lastPrediction == null) {
-      lastPrediction = new DenseDoubleVector(4);
-    }
-    Q_LEARNING_MINIMIZER.update(lastPrediction, reward, LEARNING_RATE,
-        DISCOUNT_FACTOR);
-    updateThetaInNetwork();
+  private void reward(double reward, int x, int y, Direction action,
+      double maxNextState) {
+    // TODO reward and update
+
   }
 
-  private void updateThetaInNetwork() {
-    network.trainStochastic(Q_LEARNING_MINIMIZER.getTheta());
-  }
-
-  private DoubleVector buildFeatureVector() {
+  private DoubleVector buildFeatureVector(int x, int y) {
     List<Agent> agents = getEnvironment().getBotAgents();
     double[] agentDists = new double[agents.size()];
     for (int i = 0; i < agents.size(); i++) {
