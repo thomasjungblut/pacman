@@ -35,8 +35,8 @@ public class QLearningAgent extends EnvironmentAgent implements
   private static final int NUM_FEATURES = 10;
 
   private static final double LEARNING_RATE = 0.1;
-  private static final double DISCOUNT_FACTOR = 0.9;
-  private static final double EXPLORATION_PROBABILITY = 0.2;
+  private static final double DISCOUNT_FACTOR = 0.1;
+  private static final double EXPLORATION_PROBABILITY = 0.3;
 
   private static final double FOOD_REWARD = 20;
   private static final double WON_REWARD = 100;
@@ -82,8 +82,8 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   @Override
   public void move() {
-    // explore for the first 20 epochs
-    if (epoch < 20 && rand.nextDouble() > (1d - EXPLORATION_PROBABILITY)) {
+    // explore
+    if (rand.nextDouble() > (1d - EXPLORATION_PROBABILITY)) {
       direction = RandomGhost.getRandomDirection(getEnvironment(),
           getXPosition(), getYPosition(), rand);
     } else {

@@ -9,6 +9,7 @@ import java.util.Random;
 import de.jungblut.agents.Agent;
 import de.jungblut.agents.FollowerGhost;
 import de.jungblut.agents.QLearningAgent;
+import de.jungblut.agents.RandomGhost;
 
 /**
  * The game environment. Takes care of the world by: generating it, give helper
@@ -96,7 +97,7 @@ public class Environment {
     humanPlayer = new QLearningAgent(this);
     agentList.add(humanPlayer);
     // agentList.add(new ConstantGhost(this));
-    // agentList.add(new RandomGhost(this));
+    agentList.add(new RandomGhost(this));
     agentList.add(new FollowerGhost(this));
     agentList.add(new FollowerGhost(this));
   }
