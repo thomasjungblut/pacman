@@ -32,15 +32,15 @@ import de.jungblut.math.dense.DenseDoubleVector;
 public class QLearningAgent extends EnvironmentAgent implements
     GameStateListener, FoodConsumerListener {
 
-  private static final int NUM_FEATURES = 10;
+  private static final int NUM_FEATURES = 11;
 
   private static final double LEARNING_RATE = 0.1;
   private static final double DISCOUNT_FACTOR = 0.1;
   private static final double EXPLORATION_PROBABILITY = 0.3;
 
-  private static final double FOOD_REWARD = 20;
-  private static final double WON_REWARD = 100;
-  private static final double LOST_REWARD = -10;
+  private static final double FOOD_REWARD = 0.1;
+  private static final double WON_REWARD = 2;
+  private static final double LOST_REWARD = -1;
 
   private static int epoch = 0;
 
@@ -174,7 +174,7 @@ public class QLearningAgent extends EnvironmentAgent implements
     int downBlocked = getEnvironment().isBlocked(getYPosition(),
         getXPosition(), Direction.DOWN) ? 0 : 1;
 
-    return new DenseDoubleVector(new double[] { ArrayUtils.min(agentDists),
+    return new DenseDoubleVector(new double[] { 1, ArrayUtils.min(agentDists),
         foodDists[minFoodDistanceIndex], leftFood, rightFood, upFood, downFood,
         leftBlocked, rightBlocked, upBlocked, downBlocked });
   }
