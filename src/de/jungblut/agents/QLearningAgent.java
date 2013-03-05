@@ -32,16 +32,15 @@ import de.jungblut.math.dense.DenseDoubleVector;
 public class QLearningAgent extends EnvironmentAgent implements
     GameStateListener, FoodConsumerListener {
 
-  private static final int NUM_FEATURES = 11;
+  public static double EXPLORATION_PROBABILITY = 0.2;
 
-  private static final double LEARNING_RATE = 0.1;
+  private static final int NUM_FEATURES = 15;
+  private static final double LEARNING_RATE = 0.025;
   private static final double DISCOUNT_FACTOR = 0.1;
-  private static final double EXPLORATION_PROBABILITY = 0.3;
 
-  private static final double FOOD_REWARD = 0.1;
-  private static final double WON_REWARD = 2;
-  private static final double LOST_REWARD = -1;
-
+  private static final double FOOD_REWARD = 0.5;
+  private static final double WON_REWARD = 100;
+  private static final double LOST_REWARD = -10;
   private static int epoch = 0;
 
   private static DoubleVector weights;
@@ -52,8 +51,6 @@ public class QLearningAgent extends EnvironmentAgent implements
    * - distance to closest food<br/>
    * - direction for the closest food <br/>
    * - directions blocked <br/>
-   * Ideas: <br/>
-   * - number of ghosts in a radius of n-blocks<br/>
    * - direction for the closest ghost<br/>
    */
 
@@ -72,9 +69,11 @@ public class QLearningAgent extends EnvironmentAgent implements
       e.printStackTrace();
     }
     graph = FollowerGhost.createGraph(env);
-    weights = new DenseDoubleVector(NUM_FEATURES);
-    for (int i = 0; i < weights.getLength(); i++) {
-      weights.set(i, rand.nextDouble());
+    if (weights == null) {
+      weights = new DenseDoubleVector(NUM_FEATURES);
+      for (int i = 0; i < weights.getLength(); i++) {
+        weights.set(i, rand.nextDouble());
+      }
     }
     System.out.println("Starting epoch " + (epoch++) + " -> "
         + Arrays.toString(weights.toArray()));
@@ -142,6 +141,18 @@ public class QLearningAgent extends EnvironmentAgent implements
       agentDists[i] = distance(x, y, agents.get(i).getXPosition(), agents
           .get(i).getYPosition());
     }
+    int minAgentDistanceIndex = ArrayUtils.minIndex(agentDists);
+    Agent nearestAgent = agents.get(minAgentDistanceIndex);
+    Point nearestAgentPoint = new Point(nearestAgent.getXPosition(),
+        nearestAgent.getYPosition());
+    PlanningEngine<Point> agentPlan = new PlanningEngine<>();
+    FollowerGhost.computePath(graph, agentPlan, nearestAgentPoint, x, y);
+    Point nextAction = agentPlan.nextAction();
+    Direction nextAgentDirection = direction;
+    if (nextAction != null) {
+      nextAgentDirection = getEnvironment().getDirection(x, y, nextAction.x,
+          nextAction.y);
+    }
 
     List<Point> foodPoints = getEnvironment().getFoodPoints();
     double[] foodDists = new double[foodPoints.size()];
@@ -153,7 +164,7 @@ public class QLearningAgent extends EnvironmentAgent implements
     Point nearestFoodTile = foodPoints.get(minFoodDistanceIndex);
     PlanningEngine<Point> plan = new PlanningEngine<>();
     FollowerGhost.computePath(graph, plan, nearestFoodTile, x, y);
-    Point nextAction = plan.nextAction();
+    nextAction = plan.nextAction();
     Direction nextFoodDirection = direction;
     if (nextAction != null) {
       nextFoodDirection = getEnvironment().getDirection(x, y, nextAction.x,
@@ -165,6 +176,11 @@ public class QLearningAgent extends EnvironmentAgent implements
     int upFood = nextFoodDirection == Direction.UP ? 0 : 1;
     int downFood = nextFoodDirection == Direction.DOWN ? 0 : 1;
 
+    int leftAgent = nextAgentDirection == Direction.LEFT ? 0 : 1;
+    int rightAgent = nextAgentDirection == Direction.RIGHT ? 0 : 1;
+    int upAgent = nextAgentDirection == Direction.UP ? 0 : 1;
+    int downAgent = nextAgentDirection == Direction.DOWN ? 0 : 1;
+
     int leftBlocked = getEnvironment().isBlocked(getYPosition(),
         getXPosition(), Direction.LEFT) ? 0 : 1;
     int rightBlocked = getEnvironment().isBlocked(getYPosition(),
@@ -174,9 +190,11 @@ public class QLearningAgent extends EnvironmentAgent implements
     int downBlocked = getEnvironment().isBlocked(getYPosition(),
         getXPosition(), Direction.DOWN) ? 0 : 1;
 
-    return new DenseDoubleVector(new double[] { 1, ArrayUtils.min(agentDists),
-        foodDists[minFoodDistanceIndex], leftFood, rightFood, upFood, downFood,
-        leftBlocked, rightBlocked, upBlocked, downBlocked });
+    return new DenseDoubleVector(new double[] { 1,
+        agentDists[minAgentDistanceIndex] < 3d ? 1 : 0,
+        foodDists[minFoodDistanceIndex] < 10d ? 1 : 0, leftFood, rightFood,
+        upFood, downFood, leftBlocked, rightBlocked, upBlocked, downBlocked,
+        leftAgent, rightAgent, upAgent, downAgent });
   }
 
   public double distance(int x, int y, int x2, int y2) {

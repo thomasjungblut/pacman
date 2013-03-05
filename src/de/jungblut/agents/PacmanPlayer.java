@@ -10,7 +10,6 @@ import javax.imageio.ImageIO;
 
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.Environment.Direction;
-import de.jungblut.gui.MainWindow;
 
 /**
  * Basic Human Player with a keyboard listener.
@@ -55,14 +54,6 @@ public class PacmanPlayer extends EnvironmentAgent implements KeyListener {
         if (!isBlocked(Direction.UP)) {
           direction = Direction.UP;
         }
-        break;
-      case KeyEvent.VK_F1:
-        if (MainWindow.TARGET_FPS > 1) {
-          MainWindow.TARGET_FPS--;
-        }
-        break;
-      case KeyEvent.VK_F2:
-        MainWindow.TARGET_FPS++;
         break;
     }
   }

@@ -20,6 +20,7 @@ import javax.imageio.ImageIO;
 import javax.swing.JComponent;
 
 import de.jungblut.agents.Agent;
+import de.jungblut.agents.QLearningAgent;
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.FoodConsumerListener;
 import de.jungblut.gameplay.GameStateListener;
@@ -186,6 +187,8 @@ public class DisplayComponent extends JComponent implements KeyListener {
     int fps = mainWindow.getFps();
     g.setColor(FONT_COLOR);
     g.drawString("FPS: " + fps, 10, 10);
+    g.drawString("Exploration probabaility: "
+        + QLearningAgent.EXPLORATION_PROBABILITY, 80, 10);
     g.setColor(BACKGROUND_COLOR);
     try {
       lock.lock();
@@ -229,6 +232,27 @@ public class DisplayComponent extends JComponent implements KeyListener {
           mainWindow.setRunning(false);
           break;
       }
+      return;
+    }
+    switch (e.getKeyCode()) {
+      case KeyEvent.VK_F1:
+        if (MainWindow.TARGET_FPS > 1) {
+          MainWindow.TARGET_FPS--;
+        }
+        break;
+      case KeyEvent.VK_F2:
+        MainWindow.TARGET_FPS++;
+        break;
+      case KeyEvent.VK_F3:
+        if (QLearningAgent.EXPLORATION_PROBABILITY > 0) {
+          QLearningAgent.EXPLORATION_PROBABILITY -= 0.1;
+        }
+        break;
+      case KeyEvent.VK_F4:
+        if (QLearningAgent.EXPLORATION_PROBABILITY < 1d) {
+          QLearningAgent.EXPLORATION_PROBABILITY += 0.1;
+        }
+        break;
     }
   }
 

@@ -6,7 +6,7 @@ import javax.swing.JFrame;
 
 public class MainWindow extends JFrame {
 
-  public static int TARGET_FPS = 3000;
+  public static int TARGET_FPS = 5;
 
   private static final long serialVersionUID = 1L;
 
