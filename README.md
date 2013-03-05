@@ -10,12 +10,20 @@ Build
 It requires all my three core libraries:
 
 [tjungblut-math](https://github.com/thomasjungblut/tjungblut-math "Thomas' nifty math lib")
+
 [tjungblut-common](https://github.com/thomasjungblut/thomasjungblut-common "Thomas' nifty common lib")
+
 [tjungblut-graph](https://github.com/thomasjungblut/tjungblut-graph "Thomas' nifty graph lib")
 
 and Java7 to compile.
 
-Current state (02.03.2013) looks like this:
+Current state (05.03.2013) is a fully functional pacman game engine with approximate q-learning.
+You can see some early stages on my youtube channel here:
+
+[Youtube Video of Pacman QLearning](http://www.youtube.com/watch?v=Byr-tgcKTYU "Youtube Video of Pacman QLearning")
+
+
+State (02.03.2013) looks like this:
 
 ![Pacman 2][pcm2]
 
