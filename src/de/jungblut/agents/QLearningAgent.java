@@ -39,8 +39,8 @@ public class QLearningAgent extends EnvironmentAgent implements
   private static final double DISCOUNT_FACTOR = 0.8;
 
   private static final double FOOD_REWARD = 1;
-  private static final double WON_REWARD = 10;
-  private static final double LOST_REWARD = -10;
+  private static final double WON_REWARD = 1e10;
+  private static final double LOST_REWARD = -100;
   private static int epoch = 0;
 
   private static DoubleVector weights;
@@ -126,10 +126,10 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   @Override
   public boolean gameStateChanged(boolean won) {
+    // next state is always zero
+    reward(won ? WON_REWARD : LOST_REWARD, 0);
     System.out.println((won ? "We WON OMG!" : "fail.")
         + "\n\n---------------------------");
-    // next state is zero
-    reward(won ? WON_REWARD : LOST_REWARD, 0);
     // TODO check if we need have exceeded our #epochs
     return true;
   }
