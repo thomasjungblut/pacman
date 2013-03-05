@@ -32,13 +32,13 @@ import de.jungblut.math.dense.DenseDoubleVector;
 public class QLearningAgent extends EnvironmentAgent implements
     GameStateListener, FoodConsumerListener {
 
-  public static double EXPLORATION_PROBABILITY = 0.2;
+  public static double EXPLORATION_PROBABILITY = 0.05;
 
-  private static final int NUM_FEATURES = 25;
-  private static final double LEARNING_RATE = 0.001;
-  private static final double DISCOUNT_FACTOR = 0.9;
+  private static final int NUM_FEATURES = 16;
+  private static final double LEARNING_RATE = 0.02;
+  private static final double DISCOUNT_FACTOR = 0.8;
 
-  private static final double FOOD_REWARD = 5;
+  private static final double FOOD_REWARD = 1;
   private static final double WON_REWARD = 10;
   private static final double LOST_REWARD = -10;
   private static int epoch = 0;
@@ -92,7 +92,7 @@ public class QLearningAgent extends EnvironmentAgent implements
         qValues[d.getIndex()] = getQValue(x, y, d);
       }
       direction = Direction.values()[ArrayUtils.maxIndex(qValues)];
-      System.out.println(Arrays.toString(qValues) + " -> " + direction);
+      // System.out.println(Arrays.toString(qValues) + " -> " + direction);
     }
     super.move();
   }
@@ -135,8 +135,11 @@ public class QLearningAgent extends EnvironmentAgent implements
   }
 
   private void reward(double reward, double maxNextState) {
-    weights = weights.add(LEARNING_RATE
-        * (reward + DISCOUNT_FACTOR * maxNextState));
+    double qValueUpdate = LEARNING_RATE
+        * (reward + DISCOUNT_FACTOR * maxNextState);
+    System.out.println("Rewarding: " + reward + " for qvalue update: "
+        + qValueUpdate);
+    weights = weights.add(qValueUpdate);
   }
 
   private DoubleVector buildFeatureVector(int x, int y) {
@@ -160,6 +163,9 @@ public class QLearningAgent extends EnvironmentAgent implements
     }
 
     List<Point> foodPoints = getEnvironment().getFoodPoints();
+    if (foodPoints.isEmpty()) {
+      return new DenseDoubleVector(NUM_FEATURES);
+    }
     double[] foodDists = new double[foodPoints.size()];
     for (int i = 0; i < foodPoints.size(); i++) {
       foodDists[i] = distance(x, y, foodPoints.get(i).x, foodPoints.get(i).y);
@@ -195,19 +201,15 @@ public class QLearningAgent extends EnvironmentAgent implements
     int downBlocked = getEnvironment().isBlocked(getYPosition(),
         getXPosition(), Direction.DOWN) ? 0 : 1;
 
-    return new DenseDoubleVector(new double[] { 1,
-        agentDists[minAgentDistanceIndex] > 1d ? 1 : 0,
-        agentDists[minAgentDistanceIndex] > 2d ? 1 : 0,
-        agentDists[minAgentDistanceIndex] > 3d ? 1 : 0,
-        agentDists[minAgentDistanceIndex] > 5d ? 1 : 0,
-        agentDists[minAgentDistanceIndex] > 10d ? 1 : 0,
-        agentDists[minAgentDistanceIndex] > 20d ? 1 : 0,
-        foodDists[minFoodDistanceIndex] > 1d ? 1 : 0,
-        foodDists[minFoodDistanceIndex] > 2d ? 1 : 0,
-        foodDists[minFoodDistanceIndex] > 3d ? 1 : 0,
-        foodDists[minFoodDistanceIndex] > 5d ? 1 : 0,
-        foodDists[minFoodDistanceIndex] > 10d ? 1 : 0,
-        foodDists[minFoodDistanceIndex] > 20d ? 1 : 0, leftFood, rightFood,
+    boolean ghostNearby = agentDists[minAgentDistanceIndex] < 4d;
+    boolean ghostVeryNear = agentDists[minAgentDistanceIndex] < 2d;
+
+    double foodDist = foodDists[minFoodDistanceIndex]
+        / (getEnvironment().getHeight() * getEnvironment().getWidth() / getEnvironment()
+            .getBlockSize());
+
+    return new DenseDoubleVector(new double[] { 1, foodDist,
+        ghostNearby ? 1d : 0d, ghostVeryNear ? 1d : 0d, leftFood, rightFood,
         upFood, downFood, leftBlocked, rightBlocked, upBlocked, downBlocked,
         leftAgent, rightAgent, upAgent, downAgent });
   }

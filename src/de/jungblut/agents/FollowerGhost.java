@@ -70,8 +70,8 @@ public class FollowerGhost extends EnvironmentAgent {
 
   @Override
   public void move() {
-    // only chase 50% of the time
-    if (random.nextDouble() > 0.5) {
+    // only chase 20% of the time
+    if (random.nextDouble() > 0.8) {
       Agent humanPlayer = getEnvironment().getHumanPlayer();
       // if we are no stalker, we always compute the shortest path thus catching
       // the human faster
