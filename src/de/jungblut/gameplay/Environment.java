@@ -97,7 +97,7 @@ public class Environment {
     agentList.add(humanPlayer);
     // agentList.add(new ConstantGhost(this));
     // agentList.add(new RandomGhost(this));
-    agentList.add(new FollowerGhost(this));
+    // agentList.add(new FollowerGhost(this));
     agentList.add(new FollowerGhost(this));
   }
 

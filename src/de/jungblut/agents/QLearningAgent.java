@@ -34,13 +34,13 @@ public class QLearningAgent extends EnvironmentAgent implements
 
   public static double EXPLORATION_PROBABILITY = 0.2;
 
-  private static final int NUM_FEATURES = 15;
+  private static final int NUM_FEATURES = 25;
   private static final double LEARNING_RATE = 0.025;
-  private static final double DISCOUNT_FACTOR = 0.1;
+  private static final double DISCOUNT_FACTOR = 0.001;
 
-  private static final double FOOD_REWARD = 0.5;
-  private static final double WON_REWARD = 100;
-  private static final double LOST_REWARD = -10;
+  private static final double FOOD_REWARD = 0.25;
+  private static final double WON_REWARD = 10;
+  private static final double LOST_REWARD = -1;
   private static int epoch = 0;
 
   private static DoubleVector weights;
@@ -100,7 +100,12 @@ public class QLearningAgent extends EnvironmentAgent implements
   public double getQValue(int x, int y, Direction direction) {
     Point point = getEnvironment().getPoint(x, y, direction);
     if (graph.getVertexIDSet().contains(point)) {
-      return weights.dot(buildFeatureVector(point.x, point.y));
+      DoubleVector features = buildFeatureVector(point.x, point.y);
+      if (features.getLength() != weights.getLength()) {
+        throw new IllegalArgumentException(features.getLength() + " != "
+            + weights.getLength());
+      }
+      return weights.dot(features);
     } else {
       return -Double.MAX_VALUE;
     }
@@ -191,8 +196,18 @@ public class QLearningAgent extends EnvironmentAgent implements
         getXPosition(), Direction.DOWN) ? 0 : 1;
 
     return new DenseDoubleVector(new double[] { 1,
+        agentDists[minAgentDistanceIndex] < 1d ? 1 : 0,
+        agentDists[minAgentDistanceIndex] < 2d ? 1 : 0,
         agentDists[minAgentDistanceIndex] < 3d ? 1 : 0,
-        foodDists[minFoodDistanceIndex] < 10d ? 1 : 0, leftFood, rightFood,
+        agentDists[minAgentDistanceIndex] < 5d ? 1 : 0,
+        agentDists[minAgentDistanceIndex] < 10d ? 1 : 0,
+        agentDists[minAgentDistanceIndex] < 20d ? 1 : 0,
+        foodDists[minFoodDistanceIndex] < 1d ? 1 : 0,
+        foodDists[minFoodDistanceIndex] < 2d ? 1 : 0,
+        foodDists[minFoodDistanceIndex] < 3d ? 1 : 0,
+        foodDists[minFoodDistanceIndex] < 5d ? 1 : 0,
+        foodDists[minFoodDistanceIndex] < 10d ? 1 : 0,
+        foodDists[minFoodDistanceIndex] < 20d ? 1 : 0, leftFood, rightFood,
         upFood, downFood, leftBlocked, rightBlocked, upBlocked, downBlocked,
         leftAgent, rightAgent, upAgent, downAgent });
   }
