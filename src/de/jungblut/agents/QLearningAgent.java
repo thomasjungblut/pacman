@@ -21,10 +21,9 @@ import de.jungblut.math.DoubleVector;
 import de.jungblut.math.dense.DenseDoubleVector;
 
 /**
- * An agent that learns to play pacman through qlearning value iterations and a
- * neural network. <a
- * href="http://mechanistician.blogspot.de/2009/05/pacman-and-reinforcement
- * -learning.html">Some nice wrap up can be found here</a>
+ * An agent that learns to play pacman through approximate qlearning. <a href=
+ * "http://inst.eecs.berkeley.edu/~cs188/sp09/projects/reinforcement/reinforcement.html"
+ * >Some nice wrap up can be found here</a>
  * 
  * @author thomas.jungblut
  * 
@@ -35,24 +34,16 @@ public class QLearningAgent extends EnvironmentAgent implements
   public static double EXPLORATION_PROBABILITY = 0.05;
 
   private static final int NUM_FEATURES = 16;
-  private static final double LEARNING_RATE = 0.02;
+  private static final double LEARNING_RATE = 0.3;
   private static final double DISCOUNT_FACTOR = 0.8;
 
   private static final double FOOD_REWARD = 1;
-  private static final double WON_REWARD = 1e10;
-  private static final double LOST_REWARD = -100;
+  private static final double WON_REWARD = 10;
+  private static final double LOST_REWARD = -10;
   private static int epoch = 0;
 
-  private static DoubleVector weights;
-
-  /**
-   * Features: <br/>
-   * - distance to closest ghost<br/>
-   * - distance to closest food<br/>
-   * - direction for the closest food <br/>
-   * - directions blocked <br/>
-   * - direction for the closest ghost<br/>
-   */
+  private static DoubleVector weights = new DenseDoubleVector(NUM_FEATURES);
+  private static DoubleVector lastActionFeatures;
 
   // animation
   private final BufferedImage[] sprites = new BufferedImage[2];
@@ -69,12 +60,7 @@ public class QLearningAgent extends EnvironmentAgent implements
       e.printStackTrace();
     }
     graph = FollowerGhost.createGraph(env);
-    if (weights == null) {
-      weights = new DenseDoubleVector(NUM_FEATURES);
-      for (int i = 0; i < weights.getLength(); i++) {
-        weights.set(i, rand.nextDouble());
-      }
-    }
+    lastActionFeatures = null;
     System.out.println("Starting epoch " + (epoch++) + " -> "
         + Arrays.toString(weights.toArray()));
   }
@@ -88,16 +74,19 @@ public class QLearningAgent extends EnvironmentAgent implements
     } else {
       // check for every q value from this direction
       double[] qValues = new double[4];
+      DoubleVector[] features = new DoubleVector[4];
       for (Direction d : Direction.values()) {
-        qValues[d.getIndex()] = getQValue(x, y, d);
+        features[d.getIndex()] = getFeatures(x, y, d);
+        qValues[d.getIndex()] = getQValue(features[d.getIndex()]);
       }
-      direction = Direction.values()[ArrayUtils.maxIndex(qValues)];
-      // System.out.println(Arrays.toString(qValues) + " -> " + direction);
+      int selectedAction = ArrayUtils.maxIndex(qValues);
+      direction = Direction.values()[selectedAction];
+      lastActionFeatures = features[selectedAction];
     }
     super.move();
   }
 
-  public double getQValue(int x, int y, Direction direction) {
+  public DoubleVector getFeatures(int x, int y, Direction direction) {
     Point point = getEnvironment().getPoint(x, y, direction);
     if (graph.getVertexIDSet().contains(point)) {
       DoubleVector features = buildFeatureVector(point.x, point.y);
@@ -105,10 +94,13 @@ public class QLearningAgent extends EnvironmentAgent implements
         throw new IllegalArgumentException(features.getLength() + " != "
             + weights.getLength());
       }
-      return weights.dot(features);
-    } else {
-      return -Double.MAX_VALUE;
+      return features;
     }
+    return null;
+  }
+
+  public double getQValue(DoubleVector features) {
+    return features == null ? -Double.MAX_VALUE : weights.dot(features);
   }
 
   /*
@@ -119,7 +111,7 @@ public class QLearningAgent extends EnvironmentAgent implements
   public void consumedFood(int x, int y, int foodRemaining) {
     double[] qValues = new double[4];
     for (Direction d : Direction.values()) {
-      qValues[d.getIndex()] = getQValue(x, y, d);
+      qValues[d.getIndex()] = getQValue(getFeatures(x, y, d));
     }
     reward(FOOD_REWARD, ArrayUtils.max(qValues));
   }
@@ -135,13 +127,25 @@ public class QLearningAgent extends EnvironmentAgent implements
   }
 
   private void reward(double reward, double maxNextState) {
-    double qValueUpdate = LEARNING_RATE
-        * (reward + DISCOUNT_FACTOR * maxNextState);
-    System.out.println("Rewarding: " + reward + " for qvalue update: "
-        + qValueUpdate);
-    weights = weights.add(qValueUpdate);
+    double correction = (reward + DISCOUNT_FACTOR * maxNextState);
+    DoubleVector correctedWeights = weights.subtractFrom(correction);
+    DoubleVector update = correctedWeights.multiply(LEARNING_RATE);
+    if (lastActionFeatures != null) {
+      update = update.multiply(lastActionFeatures);
+    }
+    System.out.println("Rewarding " + reward + ". Updating weights by: "
+        + update);
+    weights = weights.add(update);
   }
 
+  /**
+   * Features: <br/>
+   * - distance to closest ghost<br/>
+   * - distance to closest food<br/>
+   * - direction for the closest food <br/>
+   * - directions blocked <br/>
+   * - direction for the closest ghost<br/>
+   */
   private DoubleVector buildFeatureVector(int x, int y) {
     List<Agent> agents = getEnvironment().getBotAgents();
     double[] agentDists = new double[agents.size()];
@@ -207,11 +211,11 @@ public class QLearningAgent extends EnvironmentAgent implements
     double foodDist = foodDists[minFoodDistanceIndex]
         / (getEnvironment().getHeight() * getEnvironment().getWidth() / getEnvironment()
             .getBlockSize());
-
-    return new DenseDoubleVector(new double[] { 1, foodDist,
-        ghostNearby ? 1d : 0d, ghostVeryNear ? 1d : 0d, leftFood, rightFood,
-        upFood, downFood, leftBlocked, rightBlocked, upBlocked, downBlocked,
-        leftAgent, rightAgent, upAgent, downAgent });
+    DenseDoubleVector feature = new DenseDoubleVector(new double[] { 1,
+        foodDist, ghostNearby ? 1d : 0d, ghostVeryNear ? 1d : 0d, leftFood,
+        rightFood, upFood, downFood, leftBlocked, rightBlocked, upBlocked,
+        downBlocked, leftAgent, rightAgent, upAgent, downAgent });
+    return feature.divide(feature.sum());
   }
 
   public double distance(int x, int y, int x2, int y2) {
