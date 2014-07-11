@@ -1,4 +1,4 @@
-package de.jungblut.gameplay;
+package de.jungblut.gameplay.listener;
 
 public interface GameStateListener {
 

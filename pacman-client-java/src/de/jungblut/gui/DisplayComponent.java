@@ -8,26 +8,39 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import javax.imageio.ImageIO;
 import javax.swing.JComponent;
 
 import de.jungblut.agents.Agent;
+import de.jungblut.agents.FollowerGhost;
 import de.jungblut.agents.QLearningAgent;
 import de.jungblut.gameplay.Environment;
-import de.jungblut.gameplay.FoodConsumerListener;
-import de.jungblut.gameplay.GameStateListener;
+import de.jungblut.gameplay.listener.FoodConsumerListener;
+import de.jungblut.gameplay.listener.GameStateListener;
+import de.jungblut.gameplay.maze.Maze;
+import de.jungblut.gameplay.maze.NaiveMapGenerator;
+import de.jungblut.utils.SpriteCache;
 
 public class DisplayComponent extends JComponent implements KeyListener {
 
   private static final long serialVersionUID = 1L;
+
+  private static final double WALL_SPARSITY = 0.4; // =60% walls
+  private static final double FOOD_SPARSITY = 0.4; // =60% food
+
+  private static final int BLOCK_SIZE = MainWindow.BLOCK_SIZE;
+
+  private static final String FOOD_GIF = "food.gif";
+  private static final String GHOST_0_GIF = "ghost_0.gif";
+  private static final String GHOST_1_GIF = "ghost_1.gif";
+  private static final String PACMAN_OPEN_GIF = "pacpix_0.gif";
+  private static final String PACMAN_CLOSED_GIF = "pacpix_1.gif";
 
   private static final Color BACKGROUND_COLOR = Color.BLACK;
   private static final Color ROAD_COLOR = BACKGROUND_COLOR;
@@ -37,32 +50,35 @@ public class DisplayComponent extends JComponent implements KeyListener {
   private static final Font END_SCREEN_FONT = new Font("Serif", Font.BOLD, 24);
 
   private final MainWindow mainWindow;
-  private final BufferedImage foodSprite;
 
   private Environment environment;
 
-  private volatile Lock lock = new ReentrantLock();
+  private volatile Lock winLock = new ReentrantLock();
   // note that this is a triple state for null=running, true=won, false=lost
   private volatile Boolean won;
 
   private List<FoodConsumerListener> foodNotifier;
   private List<GameStateListener> gameStateNotifier;
 
-  public DisplayComponent(MainWindow mainWindow) {
+  public DisplayComponent(MainWindow mainWindow) throws IOException {
     this.mainWindow = mainWindow;
+    initSpriteCache();
+
     init();
-    try {
-      foodSprite = ImageIO.read(new File("sprites/food.gif"));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
     addKeyListener(this);
   }
 
   public void init() {
     won = null;
-    environment = new Environment(MainWindow.FRAME_WIDTH,
-        MainWindow.FRAME_HEIGHT, MainWindow.BLOCK_SIZE);
+    Maze maze = new NaiveMapGenerator().generateMaze(MainWindow.FRAME_HEIGHT
+        / BLOCK_SIZE, MainWindow.FRAME_WIDTH / BLOCK_SIZE, WALL_SPARSITY,
+        FOOD_SPARSITY);
+
+    ArrayList<Agent> bots = new ArrayList<>();
+    bots.add(new FollowerGhost(maze));
+
+    environment = new Environment(maze, new QLearningAgent(maze), bots);
+
     foodNotifier = new ArrayList<>();
     gameStateNotifier = new ArrayList<>();
     // register the callbacks
@@ -84,20 +100,20 @@ public class DisplayComponent extends JComponent implements KeyListener {
       List<Agent> agents = environment.getAgents();
       for (int i = 0; i < agents.size(); i++) {
         Agent agent = agents.get(i);
-        agent.move();
+        agent.move(environment);
         if (agent.isHuman()) {
-          if (environment
-              .removeFood(agent.getXPosition(), agent.getYPosition())) {
+          if (environment.getMaze().removeFood(agent.getXPosition(),
+              agent.getYPosition())) {
             for (FoodConsumerListener listener : foodNotifier) {
-              listener.consumedFood(agent.getXPosition(), agent.getYPosition(),
-                  environment.getFoodRemaining());
+              listener.consumedFood(environment, agent.getXPosition(), agent
+                  .getYPosition(), environment.getMaze().getFoodRemaining());
             }
-            if (environment.getFoodRemaining() <= 0) {
+            if (environment.getMaze().getFoodRemaining() <= 0) {
               try {
-                lock.lock();
+                winLock.lock();
                 won = true;
               } finally {
-                lock.unlock();
+                winLock.unlock();
               }
               break;
             }
@@ -109,15 +125,14 @@ public class DisplayComponent extends JComponent implements KeyListener {
           Agent agent2 = agents.get(j);
           // check for agent collisions with a human
           if (agent2.isHuman() && !agent.isHuman()) {
-            if (agent.getXPosition() == environment.getHumanPlayer()
-                .getXPosition()
-                && agent.getYPosition() == environment.getHumanPlayer()
+            if (agent.getXPosition() == environment.getHuman().getXPosition()
+                && agent.getYPosition() == environment.getHuman()
                     .getYPosition()) {
               try {
-                lock.lock();
+                winLock.lock();
                 won = false;
               } finally {
-                lock.unlock();
+                winLock.unlock();
               }
               break;
             }
@@ -148,26 +163,21 @@ public class DisplayComponent extends JComponent implements KeyListener {
         RenderingHints.VALUE_RENDER_QUALITY);
     // check if the game is running normally
     // paint the world
-    for (int x = 0; x < environment.getHeight(); x++) {
-      for (int y = 0; y < environment.getWidth(); y++) {
-        switch (environment.getState(x, y)) {
+    for (int x = 0; x < environment.getMaze().getHeight(); x++) {
+      for (int y = 0; y < environment.getMaze().getWidth(); y++) {
+        switch (environment.getMaze().getState(x, y)) {
           case FOOD:
-            g.drawImage(foodSprite, y * environment.getBlockSize(), x
-                * environment.getBlockSize(), environment.getBlockSize(),
-                environment.getBlockSize(), null);
+            g.drawImage(SpriteCache.getInstance().getImage(FOOD_GIF), y
+                * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, null);
             break;
           case ROAD:
             g.setColor(ROAD_COLOR);
-            g.fillRect(y * environment.getBlockSize(),
-                x * environment.getBlockSize(), environment.getBlockSize(),
-                environment.getBlockSize());
+            g.fillRect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
             g.setColor(BACKGROUND_COLOR);
             break;
           case WALL:
             g.setColor(WALL_COLOR);
-            g.fillRect(y * environment.getBlockSize(),
-                x * environment.getBlockSize(), environment.getBlockSize(),
-                environment.getBlockSize());
+            g.fillRect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
             g.setColor(BACKGROUND_COLOR);
             break;
           default:
@@ -178,10 +188,8 @@ public class DisplayComponent extends JComponent implements KeyListener {
     // paint the actors
     for (int i = 0; i < environment.getAgents().size(); i++) {
       Agent agent = environment.getAgents().get(i);
-      g.drawImage(agent.getSprite(),
-          agent.getYPosition() * environment.getBlockSize(),
-          agent.getXPosition() * environment.getBlockSize(),
-          environment.getBlockSize(), environment.getBlockSize(), null);
+      g.drawImage(agent.getSprite(), agent.getYPosition() * BLOCK_SIZE,
+          agent.getXPosition() * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, null);
     }
     // print fps
     int fps = mainWindow.getFps();
@@ -191,7 +199,7 @@ public class DisplayComponent extends JComponent implements KeyListener {
         + QLearningAgent.EXPLORATION_PROBABILITY, 80, 10);
     g.setColor(BACKGROUND_COLOR);
     try {
-      lock.lock();
+      winLock.lock();
       if (won != null) {
         String s = "You " + (won ? "won" : "failed miserably")
             + "! Continue? Y/N";
@@ -212,7 +220,7 @@ public class DisplayComponent extends JComponent implements KeyListener {
         g.setColor(BACKGROUND_COLOR);
       }
     } finally {
-      lock.unlock();
+      winLock.unlock();
     }
   }
 
@@ -265,4 +273,15 @@ public class DisplayComponent extends JComponent implements KeyListener {
   public void keyReleased(KeyEvent e) {
     keyTyped(e);
   }
+
+  private void initSpriteCache() throws IOException {
+    SpriteCache.getInstance().registerResource(FOOD_GIF, Optional.empty());
+    SpriteCache.getInstance().registerResource(GHOST_0_GIF, Optional.empty());
+    SpriteCache.getInstance().registerResource(GHOST_1_GIF, Optional.empty());
+    SpriteCache.getInstance().registerResource(PACMAN_OPEN_GIF,
+        Optional.empty());
+    SpriteCache.getInstance().registerResource(PACMAN_CLOSED_GIF,
+        Optional.empty());
+  }
+
 }

@@ -1,18 +1,14 @@
 package de.jungblut.agents;
 
 import java.awt.Point;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-import javax.imageio.ImageIO;
-
 import de.jungblut.gameplay.Environment;
-import de.jungblut.gameplay.Environment.BlockState;
 import de.jungblut.gameplay.PlanningEngine;
+import de.jungblut.gameplay.maze.Maze;
+import de.jungblut.gameplay.maze.Maze.BlockState;
 import de.jungblut.graph.DenseGraph;
 import de.jungblut.graph.Graph;
 import de.jungblut.graph.model.VertexImpl;
@@ -34,25 +30,17 @@ public class FollowerGhost extends EnvironmentAgent {
 
   private boolean stalker = false;
 
-  private BufferedImage[] sprites = new BufferedImage[1];
   private PlanningEngine<Point> plan = new PlanningEngine<>();
   private DenseGraph<Object> graph;
 
   private Random random = new Random();
 
-  public FollowerGhost(Environment env) {
+  public FollowerGhost(Maze env) {
     super(env);
-
-    try {
-      sprites[0] = ImageIO.read(new File("sprites/ghost_1.gif"));
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-
     graph = createGraph(env);
   }
 
-  static DenseGraph<Object> createGraph(Environment env) {
+  static DenseGraph<Object> createGraph(Maze env) {
     DenseGraph<Object> graph = new DenseGraph<>(env.getHeight(), env.getWidth());
 
     // add the vertices from the environment
@@ -69,10 +57,10 @@ public class FollowerGhost extends EnvironmentAgent {
   }
 
   @Override
-  public void move() {
+  public void move(Environment env) {
     // only chase 20% of the time
     if (random.nextDouble() > 0.8) {
-      Agent humanPlayer = getEnvironment().getHumanPlayer();
+      Agent humanPlayer = env.getHuman();
       // if we are no stalker, we always compute the shortest path thus catching
       // the human faster
       if (!stalker) {
@@ -93,13 +81,13 @@ public class FollowerGhost extends EnvironmentAgent {
       Point nextAction = plan.nextAction();
       Point currentPoint = new Point(x, y);
       if (nextAction != null && !nextAction.equals(currentPoint)) {
-        this.direction = getEnvironment().getDirection(x, y, nextAction.x,
+        this.direction = env.getMaze().getDirection(x, y, nextAction.x,
             nextAction.y);
         plan.planDistinct(new Point(humanPlayer.getXPosition(), humanPlayer
             .getYPosition()));
       }
 
-      super.move();
+      super.move(env);
     }
   }
 
@@ -141,8 +129,8 @@ public class FollowerGhost extends EnvironmentAgent {
   }
 
   @Override
-  public BufferedImage[] getAnimationSprites() {
-    return sprites;
+  public String[] getAnimationSprites() {
+    return new String[] { "ghost_1.gif" };
   }
 
 }

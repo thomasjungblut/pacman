@@ -3,8 +3,9 @@ package de.jungblut.agents;
 import java.awt.Point;
 
 import de.jungblut.gameplay.Environment;
-import de.jungblut.gameplay.Environment.BlockState;
-import de.jungblut.gameplay.Environment.Direction;
+import de.jungblut.gameplay.maze.Maze;
+import de.jungblut.gameplay.maze.Maze.BlockState;
+import de.jungblut.gameplay.maze.Maze.Direction;
 
 /**
  * Agent that interacts with its environment. This class takes care of the
@@ -13,23 +14,19 @@ import de.jungblut.gameplay.Environment.Direction;
  * @author thomas.jungblut
  * 
  */
-public abstract class EnvironmentAgent extends DrawableAgent {
-
-  private final Environment environment;
+public abstract class EnvironmentAgent extends AnimatedAgent {
 
   protected int x;
   protected int y;
   protected Direction direction = Direction.RIGHT;
 
-  public EnvironmentAgent(Environment env) {
+  public EnvironmentAgent(Maze env) {
     Point freeSpot = env.getFreeSpot();
-    this.environment = env;
     this.x = freeSpot.x;
     this.y = freeSpot.y;
   }
 
-  public EnvironmentAgent(Environment env, int x, int y) {
-    this.environment = env;
+  public EnvironmentAgent(Maze env, int x, int y) {
     this.x = x;
     this.y = y;
   }
@@ -38,25 +35,25 @@ public abstract class EnvironmentAgent extends DrawableAgent {
    * Moves in the currently defined direction if it is not blocked.
    */
   @Override
-  public void move() {
+  public void move(Environment env) {
     switch (getDirection()) {
       case DOWN:
-        if (!isBlocked(Direction.DOWN)) {
+        if (!isBlocked(env.getMaze(), Direction.DOWN)) {
           x++;
         }
         break;
       case LEFT:
-        if (!isBlocked(Direction.LEFT)) {
+        if (!isBlocked(env.getMaze(), Direction.LEFT)) {
           y--;
         }
         break;
       case RIGHT:
-        if (!isBlocked(Direction.RIGHT)) {
+        if (!isBlocked(env.getMaze(), Direction.RIGHT)) {
           y++;
         }
         break;
       case UP:
-        if (!isBlocked(Direction.UP)) {
+        if (!isBlocked(env.getMaze(), Direction.UP)) {
           x--;
         }
         break;
@@ -66,14 +63,9 @@ public abstract class EnvironmentAgent extends DrawableAgent {
   /**
    * @return true if the way of the given direction is blocked.
    */
-  protected boolean isBlocked(Direction d) {
-    Point point = environment.getPoint(x, y, d);
-    return getEnvironment().getState(point.x, point.y) == BlockState.WALL;
-  }
-
-  @Override
-  public Environment getEnvironment() {
-    return this.environment;
+  protected boolean isBlocked(Maze maze, Direction d) {
+    Point point = Maze.getPoint(x, y, d);
+    return maze.getState(point.x, point.y) == BlockState.WALL;
   }
 
   @Override

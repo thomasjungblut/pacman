@@ -7,26 +7,27 @@ import javax.swing.JFrame;
 public class MainWindow extends JFrame {
 
   public static int TARGET_FPS = 30;
+  public static final int BLOCK_SIZE = 20;
 
+  private static final int ONE_BILLION = 1_000_000_000;
   private static final long serialVersionUID = 1L;
 
   private static final int X_OFFSET = 1220;
   private static final int Y_OFFSET = 200;
   static final int FRAME_WIDTH = 500;
   static final int FRAME_HEIGHT = 300;
-  static final int BLOCK_SIZE = 20;
 
   private volatile boolean running = true;
-  private int fps;
+  private int currentFps;
 
   private DisplayComponent displayComponent;
 
-  public MainWindow() {
+  public MainWindow() throws Exception {
     super("Pacman");
-    this.displayComponent = new DisplayComponent(this);
-    add(displayComponent);
+    displayComponent = new DisplayComponent(this);
     displayComponent.setFocusable(true);
     displayComponent.requestFocusInWindow();
+    add(displayComponent);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setResizable(false);
     setBounds(X_OFFSET, Y_OFFSET, FRAME_WIDTH, FRAME_HEIGHT + BLOCK_SIZE);
@@ -34,12 +35,12 @@ public class MainWindow extends JFrame {
     setVisible(true);
   }
 
-  public void run() {
+  public void run() throws Exception {
     long lastLoopTime = System.nanoTime();
     long lastFpsTime = 0;
     int fps = 0;
     while (running) {
-      long OPTIMAL_TIME = 1000000000 / TARGET_FPS;
+      long OPTIMAL_TIME = ONE_BILLION / TARGET_FPS;
       long now = System.nanoTime();
       long updateLength = now - lastLoopTime;
       lastLoopTime = now;
@@ -47,8 +48,8 @@ public class MainWindow extends JFrame {
       lastFpsTime += updateLength;
       fps++;
 
-      if (lastFpsTime >= 1000000000) {
-        this.fps = fps;
+      if (lastFpsTime >= ONE_BILLION) {
+        this.currentFps = fps;
         lastFpsTime = 0;
         fps = 0;
       }
@@ -56,13 +57,9 @@ public class MainWindow extends JFrame {
       displayComponent.doGameUpdates(delta);
       render();
 
-      try {
-        long sleepTime = (lastLoopTime - System.nanoTime() + OPTIMAL_TIME) / 1000000;
-        if (sleepTime > 0) {
-          Thread.sleep(sleepTime);
-        }
-      } catch (InterruptedException e) {
-        e.printStackTrace();
+      long sleepTime = (lastLoopTime - System.nanoTime() + OPTIMAL_TIME) / 1000000;
+      if (sleepTime > 0) {
+        Thread.sleep(sleepTime);
       }
     }
 
@@ -75,14 +72,14 @@ public class MainWindow extends JFrame {
   }
 
   public int getFps() {
-    return this.fps;
+    return this.currentFps;
   }
 
   void setRunning(boolean running) {
     this.running = running;
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     MainWindow win = new MainWindow();
     win.run();
   }

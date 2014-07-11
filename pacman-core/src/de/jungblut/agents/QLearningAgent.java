@@ -1,24 +1,20 @@
 package de.jungblut.agents;
 
 import java.awt.Point;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-import javax.imageio.ImageIO;
-
-import de.jungblut.datastructure.ArrayUtils;
 import de.jungblut.gameplay.Environment;
-import de.jungblut.gameplay.Environment.Direction;
-import de.jungblut.gameplay.FoodConsumerListener;
-import de.jungblut.gameplay.GameStateListener;
 import de.jungblut.gameplay.PlanningEngine;
+import de.jungblut.gameplay.listener.FoodConsumerListener;
+import de.jungblut.gameplay.listener.GameStateListener;
+import de.jungblut.gameplay.maze.Maze;
+import de.jungblut.gameplay.maze.Maze.Direction;
 import de.jungblut.graph.DenseGraph;
 import de.jungblut.math.DoubleVector;
 import de.jungblut.math.dense.DenseDoubleVector;
+import de.jungblut.utils.ArrayUtils;
 
 /**
  * An agent that learns to play pacman through approximate qlearning. <a href=
@@ -45,20 +41,11 @@ public class QLearningAgent extends EnvironmentAgent implements
   private static DoubleVector weights = new DenseDoubleVector(NUM_FEATURES);
   private static DoubleVector lastActionFeatures;
 
-  // animation
-  private final BufferedImage[] sprites = new BufferedImage[2];
-
   private DenseGraph<Object> graph;
   private Random rand = new Random();
 
-  public QLearningAgent(Environment env) {
+  public QLearningAgent(Maze env) {
     super(env);
-    try {
-      sprites[0] = ImageIO.read(new File("sprites/pacpix_0.gif"));
-      sprites[1] = ImageIO.read(new File("sprites/pacpix_3.gif"));
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
     graph = FollowerGhost.createGraph(env);
     lastActionFeatures = null;
     System.out.println("Starting epoch " + (epoch++) + " -> "
@@ -66,30 +53,31 @@ public class QLearningAgent extends EnvironmentAgent implements
   }
 
   @Override
-  public void move() {
+  public void move(Environment env) {
     // explore
     if (rand.nextDouble() > (1d - EXPLORATION_PROBABILITY)) {
-      direction = RandomGhost.getRandomDirection(getEnvironment(),
-          getXPosition(), getYPosition(), rand);
+      direction = RandomGhost.getRandomDirection(env.getMaze(), getXPosition(),
+          getYPosition(), rand);
     } else {
       // check for every q value from this direction
       double[] qValues = new double[4];
       DoubleVector[] features = new DoubleVector[4];
       for (Direction d : Direction.values()) {
-        features[d.getIndex()] = getFeatures(x, y, d);
+        features[d.getIndex()] = getFeatures(env, x, y, d);
         qValues[d.getIndex()] = getQValue(features[d.getIndex()]);
       }
       int selectedAction = ArrayUtils.maxIndex(qValues);
       direction = Direction.values()[selectedAction];
       lastActionFeatures = features[selectedAction];
     }
-    super.move();
+    super.move(env);
   }
 
-  public DoubleVector getFeatures(int x, int y, Direction direction) {
-    Point point = getEnvironment().getPoint(x, y, direction);
+  public DoubleVector getFeatures(Environment env, int x, int y,
+      Direction direction) {
+    Point point = Maze.getPoint(x, y, direction);
     if (graph.getVertexIDSet().contains(point)) {
-      DoubleVector features = buildFeatureVector(point.x, point.y);
+      DoubleVector features = buildFeatureVector(env, point.x, point.y);
       if (features.getLength() != weights.getLength()) {
         throw new IllegalArgumentException(features.getLength() + " != "
             + weights.getLength());
@@ -108,10 +96,10 @@ public class QLearningAgent extends EnvironmentAgent implements
    */
 
   @Override
-  public void consumedFood(int x, int y, int foodRemaining) {
+  public void consumedFood(Environment env, int x, int y, int foodRemaining) {
     double[] qValues = new double[4];
     for (Direction d : Direction.values()) {
-      qValues[d.getIndex()] = getQValue(getFeatures(x, y, d));
+      qValues[d.getIndex()] = getQValue(getFeatures(env, x, y, d));
     }
     reward(FOOD_REWARD, ArrayUtils.max(qValues));
   }
@@ -146,8 +134,9 @@ public class QLearningAgent extends EnvironmentAgent implements
    * - directions blocked <br/>
    * - direction for the closest ghost<br/>
    */
-  private DoubleVector buildFeatureVector(int x, int y) {
-    List<Agent> agents = getEnvironment().getBotAgents();
+  private DoubleVector buildFeatureVector(Environment env, int x, int y) {
+    List<Agent> agents = env.getBots();
+    Maze m = env.getMaze();
     double[] agentDists = new double[agents.size()];
     for (int i = 0; i < agents.size(); i++) {
       agentDists[i] = distance(x, y, agents.get(i).getXPosition(), agents
@@ -162,11 +151,10 @@ public class QLearningAgent extends EnvironmentAgent implements
     Point nextAction = agentPlan.nextAction();
     Direction nextAgentDirection = direction;
     if (nextAction != null) {
-      nextAgentDirection = getEnvironment().getDirection(x, y, nextAction.x,
-          nextAction.y);
+      nextAgentDirection = m.getDirection(x, y, nextAction.x, nextAction.y);
     }
 
-    List<Point> foodPoints = getEnvironment().getFoodPoints();
+    List<Point> foodPoints = m.getFoodPoints();
     if (foodPoints.isEmpty()) {
       return new DenseDoubleVector(NUM_FEATURES);
     }
@@ -182,8 +170,7 @@ public class QLearningAgent extends EnvironmentAgent implements
     nextAction = plan.nextAction();
     Direction nextFoodDirection = direction;
     if (nextAction != null) {
-      nextFoodDirection = getEnvironment().getDirection(x, y, nextAction.x,
-          nextAction.y);
+      nextFoodDirection = m.getDirection(x, y, nextAction.x, nextAction.y);
     }
 
     int leftFood = nextFoodDirection == Direction.LEFT ? 0 : 1;
@@ -196,21 +183,20 @@ public class QLearningAgent extends EnvironmentAgent implements
     int upAgent = nextAgentDirection == Direction.UP ? 0 : 1;
     int downAgent = nextAgentDirection == Direction.DOWN ? 0 : 1;
 
-    int leftBlocked = getEnvironment().isBlocked(getYPosition(),
-        getXPosition(), Direction.LEFT) ? 0 : 1;
-    int rightBlocked = getEnvironment().isBlocked(getYPosition(),
-        getXPosition(), Direction.RIGHT) ? 0 : 1;
-    int upBlocked = getEnvironment().isBlocked(getYPosition(), getXPosition(),
-        Direction.UP) ? 0 : 1;
-    int downBlocked = getEnvironment().isBlocked(getYPosition(),
-        getXPosition(), Direction.DOWN) ? 0 : 1;
+    int leftBlocked = m.isBlocked(getYPosition(), getXPosition(),
+        Direction.LEFT) ? 0 : 1;
+    int rightBlocked = m.isBlocked(getYPosition(), getXPosition(),
+        Direction.RIGHT) ? 0 : 1;
+    int upBlocked = m.isBlocked(getYPosition(), getXPosition(), Direction.UP) ? 0
+        : 1;
+    int downBlocked = m.isBlocked(getYPosition(), getXPosition(),
+        Direction.DOWN) ? 0 : 1;
 
     boolean ghostNearby = agentDists[minAgentDistanceIndex] < 4d;
     boolean ghostVeryNear = agentDists[minAgentDistanceIndex] < 2d;
 
     double foodDist = foodDists[minFoodDistanceIndex]
-        / (getEnvironment().getHeight() * getEnvironment().getWidth() / getEnvironment()
-            .getBlockSize());
+        / (m.getHeight() * m.getWidth());
     DenseDoubleVector feature = new DenseDoubleVector(new double[] { 1,
         foodDist, ghostNearby ? 1d : 0d, ghostVeryNear ? 1d : 0d, leftFood,
         rightFood, upFood, downFood, leftBlocked, rightBlocked, upBlocked,
@@ -232,13 +218,8 @@ public class QLearningAgent extends EnvironmentAgent implements
   }
 
   @Override
-  public BufferedImage[] getAnimationSprites() {
-    return sprites;
-  }
-
-  @Override
-  protected int getNumAnimationSprites() {
-    return 2;
+  public String[] getAnimationSprites() {
+    return new String[] { "pacpix_0.gif", "pacpix_1.gif" };
   }
 
 }

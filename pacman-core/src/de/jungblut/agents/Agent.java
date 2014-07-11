@@ -3,7 +3,7 @@ package de.jungblut.agents;
 import java.awt.image.BufferedImage;
 
 import de.jungblut.gameplay.Environment;
-import de.jungblut.gameplay.Environment.Direction;
+import de.jungblut.gameplay.maze.Maze.Direction;
 
 /**
  * Agent interface to implement a agent in the gaming world. Most
@@ -19,11 +19,6 @@ public interface Agent {
    *         so it can change within an animation.
    */
   public BufferedImage getSprite();
-
-  /**
-   * @return the environment where the agent exists.
-   */
-  public Environment getEnvironment();
 
   /**
    * @return the current X position.
@@ -43,7 +38,7 @@ public interface Agent {
   /**
    * Main game logic for an agent.
    */
-  public void move();
+  public void move(Environment environment);
 
   /**
    * @return true if the implemented agent is a human.
