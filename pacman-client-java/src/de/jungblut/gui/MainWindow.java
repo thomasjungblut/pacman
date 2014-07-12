@@ -6,7 +6,7 @@ import javax.swing.JFrame;
 
 public class MainWindow extends JFrame {
 
-  public static int TARGET_FPS = 5;
+  public static int TARGET_FPS = 60;
   public static final int BLOCK_SIZE = 20;
 
   private static final int ONE_BILLION = 1_000_000_000;
@@ -40,11 +40,10 @@ public class MainWindow extends JFrame {
     long lastFpsTime = 0;
     int fps = 0;
     while (running) {
-      long OPTIMAL_TIME = ONE_BILLION / TARGET_FPS;
+      long optimalTime = ONE_BILLION / TARGET_FPS;
       long now = System.nanoTime();
       long updateLength = now - lastLoopTime;
       lastLoopTime = now;
-      double delta = updateLength / ((double) OPTIMAL_TIME);
       lastFpsTime += updateLength;
       fps++;
 
@@ -54,10 +53,10 @@ public class MainWindow extends JFrame {
         fps = 0;
       }
 
-      displayComponent.doGameUpdates(delta);
+      displayComponent.doGameUpdates();
       render();
 
-      long sleepTime = (lastLoopTime - System.nanoTime() + OPTIMAL_TIME) / 1000000;
+      long sleepTime = (lastLoopTime - System.nanoTime() + optimalTime) / 1000000;
       if (sleepTime > 0) {
         Thread.sleep(sleepTime);
       }

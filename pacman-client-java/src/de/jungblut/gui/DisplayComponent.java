@@ -11,10 +11,7 @@ import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import javax.swing.JComponent;
 
@@ -23,8 +20,7 @@ import de.jungblut.agents.FollowerGhost;
 import de.jungblut.agents.GhostPlayer;
 import de.jungblut.agents.QLearningAgent;
 import de.jungblut.gameplay.Environment;
-import de.jungblut.gameplay.listener.FoodConsumerListener;
-import de.jungblut.gameplay.listener.GameStateListener;
+import de.jungblut.gameplay.PacmanGameEngine;
 import de.jungblut.gameplay.maze.Maze;
 import de.jungblut.gameplay.maze.NaiveMapGenerator;
 
@@ -53,27 +49,15 @@ public class DisplayComponent extends JComponent implements KeyListener {
   private final MainWindow mainWindow;
 
   private Environment environment;
-
-  private volatile Lock winLock = new ReentrantLock();
-  // note that this is a triple state for null=running, true=won, false=lost
-  private volatile Boolean won;
-
-  private List<FoodConsumerListener> foodNotifier;
-  private List<GameStateListener> gameStateNotifier;
-
-  private long ticks;
+  private PacmanGameEngine engine;
 
   public DisplayComponent(MainWindow mainWindow) throws IOException {
     this.mainWindow = mainWindow;
     initSpriteCache();
-
     init();
-    addKeyListener(this);
   }
 
   public void init() {
-    won = null;
-    ticks = 0;
     Maze maze = new NaiveMapGenerator().generateMaze(MainWindow.FRAME_HEIGHT
         / BLOCK_SIZE, MainWindow.FRAME_WIDTH / BLOCK_SIZE, WALL_SPARSITY,
         FOOD_SPARSITY);
@@ -83,78 +67,20 @@ public class DisplayComponent extends JComponent implements KeyListener {
     bots.add(new GhostPlayer(maze));
 
     environment = new Environment(maze, new QLearningAgent(maze), bots);
+    engine = new PacmanGameEngine(environment);
 
-    foodNotifier = new ArrayList<>();
-    gameStateNotifier = new ArrayList<>();
-    // register the callbacks
+    engine.registerGameStateCallback((boolean x) -> {
+      // do an auto restart if our pacman is not human
+        if (!environment.getPacman().isHuman())
+          init();
+      });
+
     for (Agent a : environment.getAgents()) {
       if (a instanceof KeyListener) {
         this.addKeyListener((KeyListener) a);
       }
-      if (a instanceof FoodConsumerListener) {
-        foodNotifier.add((FoodConsumerListener) a);
-      }
-      if (a instanceof GameStateListener) {
-        gameStateNotifier.add((GameStateListener) a);
-      }
     }
-  }
-
-  public void doGameUpdates(double delta) {
-    if (won == null) {
-      ticks++;
-      List<Agent> agents = environment.getAgents();
-      for (int i = 0; i < agents.size(); i++) {
-        Agent agent = agents.get(i);
-        agent.move(environment);
-        if (agent.isPacman()) {
-          if (environment.getMaze().removeFood(agent.getXPosition(),
-              agent.getYPosition())) {
-            for (FoodConsumerListener listener : foodNotifier) {
-              listener.consumedFood(environment, agent.getXPosition(), agent
-                  .getYPosition(), environment.getMaze().getFoodRemaining());
-            }
-            if (environment.getMaze().getFoodRemaining() <= 0) {
-              try {
-                winLock.lock();
-                won = true;
-              } finally {
-                winLock.unlock();
-              }
-              break;
-            }
-          }
-        }
-
-        // check for other agent collisions
-        for (int j = 0; j < agents.size(); j++) {
-          Agent agent2 = agents.get(j);
-          // check for agent collisions with a pacman
-          if (agent2.isPacman() && !agent.isPacman()) {
-            if (agent.getXPosition() == environment.getHuman().getXPosition()
-                && agent.getYPosition() == environment.getHuman()
-                    .getYPosition()) {
-              try {
-                winLock.lock();
-                won = false;
-              } finally {
-                winLock.unlock();
-              }
-              break;
-            }
-          }
-        }
-      }
-      if (won != null) {
-        for (GameStateListener listener : gameStateNotifier) {
-          if (listener.gameStateChanged(won)) {
-            init();
-          } else {
-            mainWindow.setRunning(false);
-          }
-        }
-      }
-    }
+    addKeyListener(this);
   }
 
   @Override
@@ -201,8 +127,9 @@ public class DisplayComponent extends JComponent implements KeyListener {
             agent.getDirection());
       }
       if (agent.isPacman()) {
+        // do a very simply animation
         sprite = SpriteCache.getInstance().getImage(
-            ticks % 2 == 0 ? PACMAN_OPEN_GIF : PACMAN_CLOSED_GIF,
+            engine.getTicks() % 2 == 0 ? PACMAN_OPEN_GIF : PACMAN_CLOSED_GIF,
             agent.getDirection());
       }
       g.drawImage(sprite, agent.getYPosition() * BLOCK_SIZE,
@@ -212,32 +139,25 @@ public class DisplayComponent extends JComponent implements KeyListener {
     int fps = mainWindow.getFps();
     g.setColor(FONT_COLOR);
     g.drawString("FPS: " + fps, 10, 10);
-    g.drawString("Exploration probabaility: "
-        + QLearningAgent.EXPLORATION_PROBABILITY, 80, 10);
     g.setColor(BACKGROUND_COLOR);
-    try {
-      winLock.lock();
-      if (won != null) {
-        String s = "You " + (won ? "won" : "failed miserably")
-            + "! Continue? Y/N";
-        // calculate the font sizes and center appropriately
-        FontMetrics fm = g.getFontMetrics(END_SCREEN_FONT);
-        java.awt.geom.Rectangle2D rect = fm.getStringBounds(s, g);
-        int textHeight = (int) (rect.getHeight());
-        int textWidth = (int) (rect.getWidth());
-        int panelHeight = this.getHeight();
-        int panelWidth = this.getWidth();
-        int x = (panelWidth - textWidth) / 2;
-        int y = (panelHeight - textHeight) / 2 + fm.getAscent();
-        // fill the background, so our text doesn't vanish
-        g.fillRect(x, y - fm.getAscent(), textWidth, textHeight);
-        g.setColor(END_SCREEN_FONT_COLOR);
-        g.setFont(END_SCREEN_FONT);
-        g.drawString(s, x, y);
-        g.setColor(BACKGROUND_COLOR);
-      }
-    } finally {
-      winLock.unlock();
+    if (!engine.isRunning()) {
+      String s = "You " + (engine.hasWon() ? "won" : "failed miserably")
+          + "! Continue? Y/N";
+      // calculate the font sizes and center appropriately
+      FontMetrics fm = g.getFontMetrics(END_SCREEN_FONT);
+      java.awt.geom.Rectangle2D rect = fm.getStringBounds(s, g);
+      int textHeight = (int) (rect.getHeight());
+      int textWidth = (int) (rect.getWidth());
+      int panelHeight = this.getHeight();
+      int panelWidth = this.getWidth();
+      int x = (panelWidth - textWidth) / 2;
+      int y = (panelHeight - textHeight) / 2 + fm.getAscent();
+      // fill the background, so our text doesn't vanish
+      g.fillRect(x, y - fm.getAscent(), textWidth, textHeight);
+      g.setColor(END_SCREEN_FONT_COLOR);
+      g.setFont(END_SCREEN_FONT);
+      g.drawString(s, x, y);
+      g.setColor(BACKGROUND_COLOR);
     }
   }
 
@@ -248,7 +168,7 @@ public class DisplayComponent extends JComponent implements KeyListener {
 
   @Override
   public void keyTyped(KeyEvent e) {
-    if (won != null) {
+    if (!engine.isRunning()) {
       switch (e.getKeyCode()) {
         case KeyEvent.VK_Y:
           init();
@@ -267,16 +187,6 @@ public class DisplayComponent extends JComponent implements KeyListener {
         break;
       case KeyEvent.VK_F2:
         MainWindow.TARGET_FPS++;
-        break;
-      case KeyEvent.VK_F3:
-        if (QLearningAgent.EXPLORATION_PROBABILITY > 0) {
-          QLearningAgent.EXPLORATION_PROBABILITY -= 0.1;
-        }
-        break;
-      case KeyEvent.VK_F4:
-        if (QLearningAgent.EXPLORATION_PROBABILITY < 1d) {
-          QLearningAgent.EXPLORATION_PROBABILITY += 0.1;
-        }
         break;
     }
   }
@@ -299,6 +209,10 @@ public class DisplayComponent extends JComponent implements KeyListener {
         Optional.empty());
     SpriteCache.getInstance().registerResource(PACMAN_CLOSED_GIF,
         Optional.empty());
+  }
+
+  public void doGameUpdates() {
+    engine.doGameUpdates();
   }
 
 }

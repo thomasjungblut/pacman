@@ -105,13 +105,11 @@ public class QLearningAgent extends EnvironmentAgent implements
   }
 
   @Override
-  public boolean gameStateChanged(boolean won) {
+  public void gameStateChanged(boolean won) {
     // next state is always zero
     reward(won ? WON_REWARD : LOST_REWARD, 0);
-    System.out.println((won ? "We WON OMG!" : "fail.")
+    System.out.println((won ? "We WON OMG!" : "failed.")
         + "\n\n---------------------------");
-    // TODO check if we need have exceeded our #epochs
-    return true;
   }
 
   private void reward(double reward, double maxNextState) {
@@ -135,7 +133,7 @@ public class QLearningAgent extends EnvironmentAgent implements
    * - direction for the closest ghost<br/>
    */
   private DoubleVector buildFeatureVector(Environment env, int x, int y) {
-    List<Agent> agents = env.getBots();
+    List<Agent> agents = env.getGhosts();
     Maze m = env.getMaze();
     double[] agentDists = new double[agents.size()];
     for (int i = 0; i < agents.size(); i++) {
