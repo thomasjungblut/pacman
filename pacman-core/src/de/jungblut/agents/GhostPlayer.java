@@ -10,14 +10,10 @@ import de.jungblut.gameplay.maze.Maze;
  * @author thomas.jungblut
  * 
  */
-public class PacmanPlayer extends ControllableAgent implements KeyListener {
+public class GhostPlayer extends ControllableAgent implements KeyListener {
 
-  public PacmanPlayer(Maze env) {
+  public GhostPlayer(Maze env) {
     super(env);
   }
 
-  @Override
-  public boolean isPacman() {
-    return true;
-  }
 }

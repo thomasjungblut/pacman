@@ -1,7 +1,5 @@
 package de.jungblut.agents;
 
-import java.awt.image.BufferedImage;
-
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.maze.Maze.Direction;
 
@@ -13,12 +11,6 @@ import de.jungblut.gameplay.maze.Maze.Direction;
  * 
  */
 public interface Agent {
-
-  /**
-   * @return get a sprite of the agent, this is called everytime in the gameloop
-   *         so it can change within an animation.
-   */
-  public BufferedImage getSprite();
 
   /**
    * @return the current X position.
@@ -39,6 +31,11 @@ public interface Agent {
    * Main game logic for an agent.
    */
   public void move(Environment environment);
+
+  /**
+   * @return true if the implemented agent is playing a pacman.
+   */
+  public boolean isPacman();
 
   /**
    * @return true if the implemented agent is a human.

@@ -6,7 +6,7 @@ import javax.swing.JFrame;
 
 public class MainWindow extends JFrame {
 
-  public static int TARGET_FPS = 30;
+  public static int TARGET_FPS = 5;
   public static final int BLOCK_SIZE = 20;
 
   private static final int ONE_BILLION = 1_000_000_000;

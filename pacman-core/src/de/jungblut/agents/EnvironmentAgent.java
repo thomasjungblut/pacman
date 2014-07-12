@@ -14,7 +14,7 @@ import de.jungblut.gameplay.maze.Maze.Direction;
  * @author thomas.jungblut
  * 
  */
-public abstract class EnvironmentAgent extends AnimatedAgent {
+public abstract class EnvironmentAgent implements Agent {
 
   protected int x;
   protected int y;
@@ -81,6 +81,16 @@ public abstract class EnvironmentAgent extends AnimatedAgent {
   @Override
   public Direction getDirection() {
     return this.direction;
+  }
+
+  @Override
+  public boolean isPacman() {
+    return false;
+  }
+
+  @Override
+  public boolean isHuman() {
+    return false;
   }
 
 }

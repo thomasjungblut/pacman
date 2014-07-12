@@ -212,14 +212,8 @@ public class QLearningAgent extends EnvironmentAgent implements
   }
 
   @Override
-  public boolean isHuman() {
-    // fake beeing human to train
+  public boolean isPacman() {
     return true;
-  }
-
-  @Override
-  public String[] getAnimationSprites() {
-    return new String[] { "pacpix_0.gif", "pacpix_1.gif" };
   }
 
 }

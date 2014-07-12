@@ -8,6 +8,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +20,13 @@ import javax.swing.JComponent;
 
 import de.jungblut.agents.Agent;
 import de.jungblut.agents.FollowerGhost;
+import de.jungblut.agents.GhostPlayer;
 import de.jungblut.agents.QLearningAgent;
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.listener.FoodConsumerListener;
 import de.jungblut.gameplay.listener.GameStateListener;
 import de.jungblut.gameplay.maze.Maze;
 import de.jungblut.gameplay.maze.NaiveMapGenerator;
-import de.jungblut.utils.SpriteCache;
 
 public class DisplayComponent extends JComponent implements KeyListener {
 
@@ -60,6 +61,8 @@ public class DisplayComponent extends JComponent implements KeyListener {
   private List<FoodConsumerListener> foodNotifier;
   private List<GameStateListener> gameStateNotifier;
 
+  private long ticks;
+
   public DisplayComponent(MainWindow mainWindow) throws IOException {
     this.mainWindow = mainWindow;
     initSpriteCache();
@@ -70,12 +73,14 @@ public class DisplayComponent extends JComponent implements KeyListener {
 
   public void init() {
     won = null;
+    ticks = 0;
     Maze maze = new NaiveMapGenerator().generateMaze(MainWindow.FRAME_HEIGHT
         / BLOCK_SIZE, MainWindow.FRAME_WIDTH / BLOCK_SIZE, WALL_SPARSITY,
         FOOD_SPARSITY);
 
     ArrayList<Agent> bots = new ArrayList<>();
     bots.add(new FollowerGhost(maze));
+    bots.add(new GhostPlayer(maze));
 
     environment = new Environment(maze, new QLearningAgent(maze), bots);
 
@@ -97,11 +102,12 @@ public class DisplayComponent extends JComponent implements KeyListener {
 
   public void doGameUpdates(double delta) {
     if (won == null) {
+      ticks++;
       List<Agent> agents = environment.getAgents();
       for (int i = 0; i < agents.size(); i++) {
         Agent agent = agents.get(i);
         agent.move(environment);
-        if (agent.isHuman()) {
+        if (agent.isPacman()) {
           if (environment.getMaze().removeFood(agent.getXPosition(),
               agent.getYPosition())) {
             for (FoodConsumerListener listener : foodNotifier) {
@@ -123,8 +129,8 @@ public class DisplayComponent extends JComponent implements KeyListener {
         // check for other agent collisions
         for (int j = 0; j < agents.size(); j++) {
           Agent agent2 = agents.get(j);
-          // check for agent collisions with a human
-          if (agent2.isHuman() && !agent.isHuman()) {
+          // check for agent collisions with a pacman
+          if (agent2.isPacman() && !agent.isPacman()) {
             if (agent.getXPosition() == environment.getHuman().getXPosition()
                 && agent.getYPosition() == environment.getHuman()
                     .getYPosition()) {
@@ -188,7 +194,18 @@ public class DisplayComponent extends JComponent implements KeyListener {
     // paint the actors
     for (int i = 0; i < environment.getAgents().size(); i++) {
       Agent agent = environment.getAgents().get(i);
-      g.drawImage(agent.getSprite(), agent.getYPosition() * BLOCK_SIZE,
+      BufferedImage sprite = SpriteCache.getInstance().getImage(GHOST_0_GIF,
+          agent.getDirection());
+      if (agent.isHuman() && !agent.isPacman()) {
+        sprite = SpriteCache.getInstance().getImage(GHOST_1_GIF,
+            agent.getDirection());
+      }
+      if (agent.isPacman()) {
+        sprite = SpriteCache.getInstance().getImage(
+            ticks % 2 == 0 ? PACMAN_OPEN_GIF : PACMAN_CLOSED_GIF,
+            agent.getDirection());
+      }
+      g.drawImage(sprite, agent.getYPosition() * BLOCK_SIZE,
           agent.getXPosition() * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, null);
     }
     // print fps

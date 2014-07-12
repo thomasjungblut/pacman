@@ -14,9 +14,4 @@ public class ConstantGhost extends EnvironmentAgent {
     super(env);
   }
 
-  @Override
-  public String[] getAnimationSprites() {
-    return new String[] { "ghost_0.gif" };
-  }
-
 }
