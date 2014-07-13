@@ -6,10 +6,12 @@ import javax.swing.JFrame;
 
 public class MainWindow extends JFrame {
 
-  public static int TARGET_FPS = 60;
+  private final static int TARGET_FPS = 120;
   public static final int BLOCK_SIZE = 20;
 
+  private static final int ONE_MILLION = 1_000_000;
   private static final int ONE_BILLION = 1_000_000_000;
+
   private static final long serialVersionUID = 1L;
 
   private static final int X_OFFSET = 1220;
@@ -53,10 +55,10 @@ public class MainWindow extends JFrame {
         fps = 0;
       }
 
-      displayComponent.doGameUpdates();
-      render();
+      displayComponent.repaint();
 
-      long sleepTime = (lastLoopTime - System.nanoTime() + optimalTime) / 1000000;
+      long sleepTime = (lastLoopTime - System.nanoTime() + optimalTime)
+          / ONE_MILLION;
       if (sleepTime > 0) {
         Thread.sleep(sleepTime);
       }
@@ -64,10 +66,6 @@ public class MainWindow extends JFrame {
 
     // if we quit our running task, we can exit the JVM
     System.exit(0);
-  }
-
-  private void render() {
-    displayComponent.repaint();
   }
 
   public int getFps() {

@@ -1,0 +1,40 @@
+namespace java de.jungblut.thrift
+
+struct Match {
+
+  1: bool gameReady, 
+  2: i32 numCurrentPlayers,
+  3: string sessionToken,
+  4: string clientIdentifier,
+}
+
+struct Point {
+  1: i32 x,
+  2: i32 y,
+}
+
+struct GameState {
+
+  1: list<list<byte>> board,
+  2: Point pacmanStart,
+  3: list<Point> ghostStart,
+  4: i32 ghostIndex,
+}
+
+service MatchService {
+
+    /**
+     * Queues for a game, gives a queuing token to identify the request.
+     */
+    string queueForGame();
+    
+    /**
+     * Polling method to await a game successfully finished a setup, given a request token.
+     */
+    Match pollGameSetupCompleted(string requestToken);
+    
+    GameState getInitialGameState(string sessionToken, string clientIdentifier);
+    
+    void awaitStart(string sessionToken, string clientIdentifier);
+
+}

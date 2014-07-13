@@ -75,6 +75,7 @@
 		<resources>
 			<resource>
 				<directory>src/</directory>
+				<directory>gen-java/</directory>
 			</resource>
 		</resources>
 		<finalName>pacman-${artifactId}-${project.version}</finalName>

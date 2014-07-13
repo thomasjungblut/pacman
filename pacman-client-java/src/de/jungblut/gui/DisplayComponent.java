@@ -12,6 +12,10 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.JComponent;
 
@@ -27,6 +31,9 @@ import de.jungblut.gameplay.maze.NaiveMapGenerator;
 public class DisplayComponent extends JComponent implements KeyListener {
 
   private static final long serialVersionUID = 1L;
+
+  private static final ScheduledExecutorService THREAD_POOL = Executors
+      .newScheduledThreadPool(1);
 
   private static final double WALL_SPARSITY = 0.4; // =60% walls
   private static final double FOOD_SPARSITY = 0.4; // =60% food
@@ -48,8 +55,10 @@ public class DisplayComponent extends JComponent implements KeyListener {
 
   private final MainWindow mainWindow;
 
-  private Environment environment;
-  private PacmanGameEngine engine;
+  private volatile Environment environment;
+  private volatile PacmanGameEngine engine;
+
+  private ScheduledFuture<?> gameFuture;
 
   public DisplayComponent(MainWindow mainWindow) throws IOException {
     this.mainWindow = mainWindow;
@@ -58,6 +67,9 @@ public class DisplayComponent extends JComponent implements KeyListener {
   }
 
   public void init() {
+    if (gameFuture != null) {
+      gameFuture.cancel(true);
+    }
     Maze maze = new NaiveMapGenerator().generateMaze(MainWindow.FRAME_HEIGHT
         / BLOCK_SIZE, MainWindow.FRAME_WIDTH / BLOCK_SIZE, WALL_SPARSITY,
         FOOD_SPARSITY);
@@ -81,6 +93,10 @@ public class DisplayComponent extends JComponent implements KeyListener {
       }
     }
     addKeyListener(this);
+
+    // update the game 10 times a second
+    gameFuture = THREAD_POOL.scheduleAtFixedRate(() -> engine.doGameUpdates(),
+        100l, 1000l / 10l, TimeUnit.MILLISECONDS);
   }
 
   @Override
@@ -179,16 +195,6 @@ public class DisplayComponent extends JComponent implements KeyListener {
       }
       return;
     }
-    switch (e.getKeyCode()) {
-      case KeyEvent.VK_F1:
-        if (MainWindow.TARGET_FPS > 1) {
-          MainWindow.TARGET_FPS--;
-        }
-        break;
-      case KeyEvent.VK_F2:
-        MainWindow.TARGET_FPS++;
-        break;
-    }
   }
 
   @Override
@@ -209,10 +215,6 @@ public class DisplayComponent extends JComponent implements KeyListener {
         Optional.empty());
     SpriteCache.getInstance().registerResource(PACMAN_CLOSED_GIF,
         Optional.empty());
-  }
-
-  public void doGameUpdates() {
-    engine.doGameUpdates();
   }
 
 }
