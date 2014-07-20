@@ -17,9 +17,9 @@ public class Environment {
 
   private final Maze maze;
   private final Agent pacman;
-  private final List<Agent> ghosts;
+  private final List<? extends Agent> ghosts;
 
-  public Environment(Maze maze, Agent pacman, List<Agent> ghosts) {
+  public Environment(Maze maze, Agent pacman, List<? extends Agent> ghosts) {
     this.maze = maze;
     this.pacman = pacman;
     this.ghosts = ghosts;
@@ -31,7 +31,7 @@ public class Environment {
     return lst;
   }
 
-  public List<Agent> getGhosts() {
+  public List<? extends Agent> getGhosts() {
     return this.ghosts;
   }
 

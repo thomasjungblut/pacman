@@ -5,16 +5,23 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import com.sun.xml.internal.ws.Closeable;
 
 import de.jungblut.agents.QLearningAgent;
+import de.jungblut.agents.RpcAgent;
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.PacmanGameEngine;
 import de.jungblut.gameplay.maze.Maze;
 import de.jungblut.gameplay.maze.Maze.BlockState;
 import de.jungblut.gameplay.maze.NaiveMapGenerator;
+import de.jungblut.math.DoubleVector;
+import de.jungblut.math.dense.DenseDoubleVector;
 import de.jungblut.thrift.Point;
 
-public class GameSession {
+public class GameSession implements Closeable {
 
   private static final int FRAME_WIDTH = 500;
   private static final int FRAME_HEIGHT = 300;
@@ -26,9 +33,15 @@ public class GameSession {
   private final String sessionToken;
   private final Set<String> players;
 
+  // TODO this will make the agent dumb as hell, we should store the
+  // most-winning weights somewhere
+  private final DoubleVector initialWeights = new DenseDoubleVector(
+      QLearningAgent.NUM_FEATURES);
+
   private Environment environment;
   private PacmanGameEngine engine;
   private CountDownLatch startingLatch;
+  private List<RpcAgent> agents;
 
   public GameSession(String sessionToken, Set<String> players) {
     this.sessionToken = sessionToken;
@@ -43,16 +56,17 @@ public class GameSession {
     // width per block
     Maze maze = new NaiveMapGenerator().generateMaze(FRAME_HEIGHT / BLOCK_SIZE,
         FRAME_WIDTH / BLOCK_SIZE, WALL_SPARSITY, FOOD_SPARSITY);
-
-    // TODO add virtual bots implementing the RPC interfaces
-    environment = new Environment(maze, new QLearningAgent(maze),
-        Collections.emptyList());
+    agents = players.stream().map((s) -> new RpcAgent(maze, s))
+        .collect(Collectors.toList());
+    environment = new Environment(maze,
+        new QLearningAgent(maze, initialWeights), agents);
     engine = new PacmanGameEngine(environment);
   }
 
   public void awaitStart() throws InterruptedException {
+    // TODO this breaks if the same client awaits multiple times
     startingLatch.countDown();
-    startingLatch.await();
+    startingLatch.await(2l, TimeUnit.MINUTES);
   }
 
   public Set<String> getPlayers() {
@@ -81,6 +95,26 @@ public class GameSession {
     }
 
     return board;
+  }
+
+  public List<Point> getPlayerPositions() {
+    return agents.stream()
+        .map((agent) -> new Point(agent.getXPosition(), agent.getYPosition()))
+        .collect(Collectors.toList());
+  }
+
+  public int getPlayerIndex(String clientIdentifier) {
+    for (int i = 0; i < agents.size(); i++) {
+      if (agents.get(i).getClientToken().equals(clientIdentifier)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  @Override
+  public void close() {
+    // TODO in case the game needs to be closed during setup failures
   }
 
 }

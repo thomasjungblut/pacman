@@ -27,6 +27,8 @@ import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.PacmanGameEngine;
 import de.jungblut.gameplay.maze.Maze;
 import de.jungblut.gameplay.maze.NaiveMapGenerator;
+import de.jungblut.math.DoubleVector;
+import de.jungblut.math.dense.DenseDoubleVector;
 
 public class DisplayComponent extends JComponent implements KeyListener {
 
@@ -58,6 +60,9 @@ public class DisplayComponent extends JComponent implements KeyListener {
   private volatile Environment environment;
   private volatile PacmanGameEngine engine;
 
+  private DoubleVector initialWeights = new DenseDoubleVector(
+      QLearningAgent.NUM_FEATURES);
+
   private ScheduledFuture<?> gameFuture;
 
   public DisplayComponent(MainWindow mainWindow) throws IOException {
@@ -78,13 +83,19 @@ public class DisplayComponent extends JComponent implements KeyListener {
     bots.add(new FollowerGhost(maze));
     bots.add(new GhostPlayer(maze));
 
-    environment = new Environment(maze, new QLearningAgent(maze), bots);
+    environment = new Environment(maze,
+        new QLearningAgent(maze, initialWeights), bots);
     engine = new PacmanGameEngine(environment);
 
     engine.registerGameStateCallback((boolean x) -> {
       // do an auto restart if our pacman is not human
-        if (!environment.getPacman().isHuman())
+        if (!environment.getPacman().isHuman()) {
+          if (environment.getPacman() instanceof QLearningAgent) {
+            initialWeights = ((QLearningAgent) environment.getPacman())
+                .getWeights();
+          }
           init();
+        }
       });
 
     for (Agent a : environment.getAgents()) {

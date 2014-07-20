@@ -1,9 +1,11 @@
 package de.jungblut.agents;
 
 import java.awt.Point;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.PlanningEngine;
@@ -27,29 +29,32 @@ import de.jungblut.utils.ArrayUtils;
 public class QLearningAgent extends EnvironmentAgent implements
     GameStateListener, FoodConsumerListener {
 
-  public static double EXPLORATION_PROBABILITY = 0.05;
+  private static final Log LOG = LogFactory.getLog(QLearningAgent.class);
 
-  private static final int NUM_FEATURES = 16;
+  public static final int NUM_FEATURES = 16;
+
+  private static final double EXPLORATION_PROBABILITY = 0.05;
   private static final double LEARNING_RATE = 0.3;
   private static final double DISCOUNT_FACTOR = 0.8;
 
   private static final double FOOD_REWARD = 1;
   private static final double WON_REWARD = 10;
   private static final double LOST_REWARD = -10;
-  private static int epoch = 0;
 
-  private static DoubleVector weights = new DenseDoubleVector(NUM_FEATURES);
-  private static DoubleVector lastActionFeatures;
+  private DoubleVector weights;
+  private DoubleVector lastActionFeatures;
 
   private DenseGraph<Object> graph;
   private Random rand = new Random();
 
-  public QLearningAgent(Maze env) {
+  public QLearningAgent(Maze env, DoubleVector initialWeights) {
     super(env);
     graph = FollowerGhost.createGraph(env);
     lastActionFeatures = null;
-    System.out.println("Starting epoch " + (epoch++) + " -> "
-        + Arrays.toString(weights.toArray()));
+    if (initialWeights == null) {
+      initialWeights = new DenseDoubleVector(NUM_FEATURES);
+    }
+    this.weights = initialWeights;
   }
 
   @Override
@@ -108,8 +113,7 @@ public class QLearningAgent extends EnvironmentAgent implements
   public void gameStateChanged(boolean won) {
     // next state is always zero
     reward(won ? WON_REWARD : LOST_REWARD, 0);
-    System.out.println((won ? "We WON OMG!" : "failed.")
-        + "\n\n---------------------------");
+    LOG.info(won ? "We WON OMG!" : "failed.");
   }
 
   private void reward(double reward, double maxNextState) {
@@ -119,8 +123,7 @@ public class QLearningAgent extends EnvironmentAgent implements
     if (lastActionFeatures != null) {
       update = update.multiply(lastActionFeatures);
     }
-    System.out.println("Rewarding " + reward + ". Updating weights by: "
-        + update);
+    LOG.info("Rewarding " + reward + ". Updating weights by: " + update);
     weights = weights.add(update);
   }
 
@@ -133,7 +136,7 @@ public class QLearningAgent extends EnvironmentAgent implements
    * - direction for the closest ghost<br/>
    */
   private DoubleVector buildFeatureVector(Environment env, int x, int y) {
-    List<Agent> agents = env.getGhosts();
+    List<? extends Agent> agents = env.getGhosts();
     Maze m = env.getMaze();
     double[] agentDists = new double[agents.size()];
     for (int i = 0; i < agents.size(); i++) {
@@ -212,6 +215,10 @@ public class QLearningAgent extends EnvironmentAgent implements
   @Override
   public boolean isPacman() {
     return true;
+  }
+
+  public DoubleVector getWeights() {
+    return this.weights;
   }
 
 }

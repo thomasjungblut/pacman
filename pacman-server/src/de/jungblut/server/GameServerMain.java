@@ -1,6 +1,5 @@
 package de.jungblut.server;
 
-import java.util.ArrayList;
 import java.util.UUID;
 
 import org.apache.commons.logging.Log;
@@ -34,7 +33,7 @@ public class GameServerMain implements MatchService.Iface {
       return new Match(false, 0, null, null);
     }
 
-    return new Match(false, session.getPlayers().size(),
+    return new Match(true, session.getPlayers().size(),
         session.getSessionToken(), requestToken);
   }
 
@@ -42,10 +41,8 @@ public class GameServerMain implements MatchService.Iface {
   public GameState getInitialGameState(String sessionToken,
       String clientIdentifier) throws TException {
     GameSession session = sessionManager.getSession(sessionToken);
-
-    // TODO get the position of the virtual bots implementing the RPC interfaces
     return new GameState(session.getBoard(), session.getPacmanPosition(),
-        new ArrayList<>(), 0);
+        session.getPlayerPositions(), session.getPlayerIndex(clientIdentifier));
   }
 
   @Override
@@ -55,7 +52,11 @@ public class GameServerMain implements MatchService.Iface {
     GameSession session = sessionManager.getSession(sessionToken);
     try {
       session.awaitStart();
+      LOG.info("Starting match in session " + sessionToken
+          + "! Player requesting it was: " + clientIdentifier);
     } catch (InterruptedException e) {
+      // remove the session in case of failure
+      sessionManager.cleanupSession(sessionToken);
       throw new TException(e);
     }
   }
