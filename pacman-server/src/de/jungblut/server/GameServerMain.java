@@ -1,7 +1,7 @@
 package de.jungblut.server;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.thrift.TException;
 
 import de.jungblut.thrift.GameState;
@@ -10,8 +10,10 @@ import de.jungblut.thrift.MatchService;
 
 public class GameServerMain implements MatchService.Iface {
 
-  // contains the request GUIDs, will be picked up by the matchmaker
-  private final ConcurrentLinkedQueue<String> requestQueue = new ConcurrentLinkedQueue<>();
+  private static final Log LOG = LogFactory.getLog(GameServerMain.class);
+
+  private static final GameSessionManager SESSION_MANAGER = new GameSessionManager();
+  private static final MatchMaker MATCH_MAKER = new MatchMaker(SESSION_MANAGER);
 
   @Override
   public String queueForGame() throws TException {
