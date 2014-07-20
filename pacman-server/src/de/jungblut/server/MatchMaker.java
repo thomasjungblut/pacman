@@ -41,10 +41,16 @@ public class MatchMaker {
     return queueSize.incrementAndGet();
   }
 
+  public int waitingPlayers() {
+    return queueSize.get();
+  }
+
+  // TODO test starvation issues- ideally we would add bots after 1 minute of
+  // waiting
   private void tryToMakeMatch() {
 
     int currentSize = queueSize.get();
-    if (currentSize >= OPTIMAL_PLAYER_COUNT) {
+    while (currentSize >= OPTIMAL_PLAYER_COUNT) {
       Set<String> matched = new HashSet<>();
       int remaining = 0;
       for (int i = 0; i < OPTIMAL_PLAYER_COUNT; i++) {
@@ -54,6 +60,7 @@ public class MatchMaker {
       LOG.info("Matched players: " + matched + "! Remaining waits: "
           + remaining);
       manager.establishNewSession(matched);
+      currentSize = queueSize.get();
     }
 
   }

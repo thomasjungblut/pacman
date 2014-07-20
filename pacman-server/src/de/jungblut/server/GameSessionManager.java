@@ -29,4 +29,8 @@ public class GameSessionManager {
     return getSession(sessionToken);
   }
 
+  public int currentSessions() {
+    return sessions.size();
+  }
+
 }
