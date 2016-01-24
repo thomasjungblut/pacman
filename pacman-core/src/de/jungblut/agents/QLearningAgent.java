@@ -4,9 +4,10 @@ import java.awt.Point;
 import java.util.List;
 import java.util.Random;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import de.jungblut.datastructure.ArrayUtils;
 import de.jungblut.gameplay.Environment;
 import de.jungblut.gameplay.PlanningEngine;
 import de.jungblut.gameplay.listener.FoodConsumerListener;
@@ -16,7 +17,6 @@ import de.jungblut.gameplay.maze.Maze.Direction;
 import de.jungblut.graph.DenseGraph;
 import de.jungblut.math.DoubleVector;
 import de.jungblut.math.dense.DenseDoubleVector;
-import de.jungblut.utils.ArrayUtils;
 
 /**
  * An agent that learns to play pacman through approximate qlearning. <a href=
@@ -29,8 +29,8 @@ import de.jungblut.utils.ArrayUtils;
 public class QLearningAgent extends EnvironmentAgent implements
     GameStateListener, FoodConsumerListener {
 
-  private static final Log LOG = LogFactory.getLog(QLearningAgent.class);
-
+  private static final Logger LOG = LogManager.getLogger(QLearningAgent.class);
+  
   public static final int NUM_FEATURES = 16;
 
   private static final double EXPLORATION_PROBABILITY = 0.05;

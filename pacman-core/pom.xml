@@ -34,9 +34,14 @@
 			<version>4.11</version>
 		</dependency>
 		<dependency>
-			<groupId>commons-logging</groupId>
-			<artifactId>commons-logging</artifactId>
-			<version>1.1.1</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>2.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-configuration</groupId>
@@ -48,17 +53,17 @@
 			<artifactId>commons-lang</artifactId>
 			<version>2.6</version>
 		</dependency>
-		<dependency>
-			<groupId>org.apache.thrift</groupId>
-			<artifactId>libthrift</artifactId>
-			<version>0.9.1</version>
-		</dependency>
 
 		<!-- my libraries -->
 		<dependency>
+			<groupId>de.jungblut.common</groupId>
+			<artifactId>thomasjungblut-common</artifactId>
+			<version>1.0</version>
+		</dependency>
+		<dependency>
 			<groupId>de.jungblut.math</groupId>
 			<artifactId>tjungblut-math</artifactId>
-			<version>1.0</version>
+			<version>1.2</version>
 		</dependency>
 		<dependency>
 			<groupId>de.jungblut.graph</groupId>
@@ -75,7 +80,6 @@
 		<resources>
 			<resource>
 				<directory>src/</directory>
-				<directory>gen-java/</directory>
 			</resource>
 		</resources>
 		<finalName>pacman-${artifactId}-${project.version}</finalName>

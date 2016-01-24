@@ -15,7 +15,6 @@
 	<modules>
 		<module>pacman-core</module>
 		<module>pacman-client-java</module>
-		<module>pacman-server</module>
 	</modules>
 
 </project>
