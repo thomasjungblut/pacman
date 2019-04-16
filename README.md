@@ -28,4 +28,4 @@ This will create a runnable client under the target folder.
 Video
 -----
 
-[Youtube Video of Pacman QLearning](http://www.youtube.com/watch?v=Byr-tgcKTYU "Youtube Video of Pacman QLearning")
+[Youtube Video of Pacman QLearning](https://youtu.be/yEjf4vAJUjI "Youtube Video of Pacman QLearning")
